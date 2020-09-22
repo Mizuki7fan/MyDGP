@@ -1,6 +1,7 @@
 #pragma once
-#include <OpenMesh/Core/Geometry/VectorT.hh>
+//#include <OpenMesh/Core/Geometry/VectorT.hh>
 #include <QOpenGLWidget>
+#include <Eigen/Dense>
 class QOpenGLTexture;
 
 class QGLViewerWidget : public QOpenGLWidget
@@ -15,7 +16,8 @@ public:
 	QSize minimumSizeHint(void) const override;
 	QSize sizeHint(void) const override;
 	const double & Radius(void) const;
-	const OpenMesh::Vec3d & Center(void) const;
+	const Eigen::Vector3d& Center(void) const;
+//	const OpenMesh::Vec3d & Center(void) const;
 	const double* GetModelviewMatrix(void) const;
 	void ResetModelviewMatrix(void);
 	void CopyModelViewMatrix(void);
@@ -46,13 +48,13 @@ protected:
 	virtual void keyReleaseEvent(QKeyEvent*) override;
 private:
 	void Translation(const QPoint & p);
-	void Translate(const OpenMesh::Vec3d & trans);
+	void Translate(const Eigen::Vector3d & trans);
 	void Rotation(const QPoint & p);
-	void Rotate(const OpenMesh::Vec3d & axis, const double & angle);
-	bool MapToSphere(const QPoint & point, OpenMesh::Vec3d & result);
+	void Rotate(const Eigen::Vector3d & axis, const double & angle);
+	bool MapToSphere(const QPoint & point, Eigen::Vector3d & result);
 	void UpdateProjectionMatrix(void);
 public:
-	void SetScenePosition(const OpenMesh::Vec3d & c, const double & r);
+	void SetScenePosition(const Eigen::Vector3d & c, const double & r);
 	void ViewAll(void);
 protected:
 	DrawMode drawmode;
@@ -62,13 +64,13 @@ protected:
 	double windowtop;
 	double windowbottom;
 	Qt::MouseButton mousemode;
-	OpenMesh::Vec3d center;
+	Eigen::Vector3d center;
 	double radius;
 	std::vector<double> projectionmatrix;
 	std::vector<double> modelviewmatrix;
 	std::vector<double> copymodelviewmatrix;
 	QPoint lastpoint2;
-	OpenMesh::Vec3d lastpoint3;
+	Eigen::Vector3d lastpoint3;
 	bool lastpointok;
 private:
 	static const double trackballradius;

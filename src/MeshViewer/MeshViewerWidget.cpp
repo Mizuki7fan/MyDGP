@@ -1,6 +1,8 @@
 #include <QtCore>
-#include <OpenMesh/Core/IO/MeshIO.hh>
+//#include <OpenMesh/Core/IO/MeshIO.hh>
 #include "MeshViewerWidget.h"
+#include <iostream>
+#include "../MeshDefinition/MyMesh_Openmesh.h"
 
 MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	: QGLViewerWidget(parent),
@@ -11,6 +13,7 @@ MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	isDrawBoundingBox(false),
 	isDrawBoundary(false)
 {
+	mesh = new Mesh();
 }
 
 MeshViewerWidget::~MeshViewerWidget(void)
@@ -20,7 +23,7 @@ MeshViewerWidget::~MeshViewerWidget(void)
 bool MeshViewerWidget::LoadMesh(const std::string & filename)
 {
 	Clear();
-	bool read_OK = MeshTools::ReadMesh(mesh, filename);
+	bool read_OK = mesh->Load(filename);
 	std::cout << "Load mesh from file " << filename << std::endl;
 	if (read_OK)
 	{
@@ -37,50 +40,51 @@ bool MeshViewerWidget::LoadMesh(const std::string & filename)
 
 void MeshViewerWidget::Clear(void)
 {
-	mesh.clear();
+	mesh->Clear();
 }
 
 void MeshViewerWidget::UpdateMesh(void)
 {
-	mesh.update_normals();
-	if (mesh.vertices_empty())
+	mesh->UpdateNormals();
+	if (mesh->VerticesEmpty())
 	{
 		std::cerr << "ERROR: UpdateMesh() No vertices!" << std::endl;
 		return;
 	}
-	ptMin[0] = ptMin[1] = ptMin[2] = DBL_MAX;
-	ptMax[0] = ptMax[1] = ptMax[2] = -DBL_MAX;
-	for (const auto& vh : mesh.vertices())
+	ptMin=DBL_MAX;
+	ptMax= -DBL_MAX;
+
+	for (int i = 0; i < mesh->NVertices(); i++)
 	{
-		ptMin.minimize(mesh.point(vh));
-		ptMax.maximize(mesh.point(vh));
+		ptMin.Minimize(mesh->getPoint(i));
+		ptMax.Maximize(mesh->getPoint(i));
 	}
 
 	double avelen = 0.0;
 	double maxlen = 0.0;
 	double minlen = DBL_MAX;
-	for (const auto& eh : mesh.edges())
+	for (int i=0;i<mesh->NEdges();i++)
 	{
-		double len = mesh.calc_edge_length(eh);
+		double len = mesh->CalcEdgeLength(i);
 		maxlen = len > maxlen ? len : maxlen;
 		minlen = len < minlen ? len : minlen;
 		avelen += len;
 	}
 
-	SetScenePosition((ptMin + ptMax)*0.5, (ptMin - ptMax).norm()*0.5);
+	SetScenePosition(((ptMin + ptMax)*0.5).toEigen3d(), (ptMin - ptMax).norm()*0.5);
 	std::cout << "Information of the input mesh:" << std::endl;
-	std::cout << "  [V, E, F] = [" << mesh.n_vertices() << ", " << mesh.n_edges() << ", " << mesh.n_faces() << "]\n";
+	std::cout << "  [V, E, F] = [" << mesh->NVertices() << ", " << mesh->NEdges() << ", " << mesh->NFaces() << "]\n";
 	std::cout << "  BoundingBox:\n";
 	std::cout << "  X: [" << ptMin[0] << ", " << ptMax[0] << "]\n";
 	std::cout << "  Y: [" << ptMin[1] << ", " << ptMax[1] << "]\n";
 	std::cout << "  Z: [" << ptMin[2] << ", " << ptMax[2] << "]\n";
 	std::cout << "  Diag length of BBox: " << (ptMax - ptMin).norm() << std::endl;
-	std::cout << "  Edge Length: [" << minlen << ", " << maxlen << "]; AVG: " << avelen / mesh.n_edges() << std::endl;
+	std::cout << "  Edge Length: [" << minlen << ", " << maxlen << "]; AVG: " << avelen / mesh->NEdges() << std::endl;
 }
 
 bool MeshViewerWidget::SaveMesh(const std::string & filename)
 {
-	return MeshTools::WriteMesh(mesh, filename, DBL_DECIMAL_DIG);
+	return mesh->Write(filename);
 }
 
 bool MeshViewerWidget::ScreenShot()
@@ -123,7 +127,7 @@ void MeshViewerWidget::ResetView(void)
 
 void MeshViewerWidget::ViewCenter(void)
 {
-	if (!mesh.vertices_empty())
+	if (!mesh->VerticesEmpty())
 	{
 		UpdateMesh();
 	}
@@ -144,7 +148,7 @@ void MeshViewerWidget::LoadRotation(void)
 void MeshViewerWidget::PrintMeshInfo(void)
 {
 	std::cout << "Mesh Info:\n";
-	std::cout << "  [V, E, F] = [" << mesh.n_vertices() << ", " << mesh.n_edges() << ", " << mesh.n_faces() << "]\n";
+	std::cout << "  [V, E, F] = [" << mesh->NVertices() << ", " << mesh->NEdges() << ", " << mesh->NFaces() << "]\n";
 	std::cout << "  BoundingBox:\n";
 	std::cout << "  X: [" << ptMin[0] << ", " << ptMax[0] << "]\n";
 	std::cout << "  Y: [" << ptMin[1] << ", " << ptMax[1] << "]\n";
@@ -169,7 +173,7 @@ void MeshViewerWidget::DrawScene(void)
 
 void MeshViewerWidget::DrawSceneMesh(void)
 {
-	if (mesh.n_vertices() == 0) { return; }
+	if (mesh->NVertices() == 0) { return; }
 	SetMaterial();
 	switch (drawmode)
 	{
@@ -202,10 +206,10 @@ void MeshViewerWidget::DrawPoints(void) const
 	glColor3d(1.0, 0.5, 0.5);
 	glPointSize(5);
 	glBegin(GL_POINTS);
-	for (const auto& vh : mesh.vertices())
+	for ( int i = 0; i < mesh->NVertices(); i++)
 	{
-		glNormal3dv(mesh.normal(vh).data());
-		glVertex3dv(mesh.point(vh).data());
+			glVertex3d(mesh->getPoint(i)[0], mesh->getPoint(i)[1], mesh->getPoint(i)[2]);
+			glNormal3d(mesh->getVertexNormal(i).x(), mesh->getVertexNormal(i).y(), mesh->getVertexNormal(i).z());
 	}
 	glEnd();
 }
@@ -214,15 +218,14 @@ void MeshViewerWidget::DrawWireframe(void) const
 {
 	glColor3d(0.2, 0.2, 0.2);
 	glBegin(GL_LINES);
-	for (const auto& eh : mesh.edges())
+	for (int i=0;i<mesh->NEdges();i++)
 	{
-		auto heh = mesh.halfedge_handle(eh, 0);
-		auto vh0 = mesh.from_vertex_handle(heh);
-		auto vh1 = mesh.to_vertex_handle(heh);
-		glNormal3dv(mesh.normal(vh0).data());
-		glVertex3dv(mesh.point(vh0).data());
-		glNormal3dv(mesh.normal(vh1).data());
-		glVertex3dv(mesh.point(vh1).data());
+		int v1idx, v2idx;
+		mesh->getEdgeVertices(i, v1idx, v2idx);
+		glNormal3d(mesh->getVertexNormal(v1idx).x(), mesh->getVertexNormal(v1idx).y(), mesh->getVertexNormal(v1idx).z());
+		glVertex3d(mesh->getPoint(v1idx)[0], mesh->getPoint(v1idx)[1], mesh->getPoint(v1idx)[2]);
+		glNormal3d(mesh->getVertexNormal(v2idx).x(), mesh->getVertexNormal(v2idx).y(), mesh->getVertexNormal(v2idx).z());
+		glVertex3d(mesh->getPoint(v2idx)[0], mesh->getPoint(v2idx)[1], mesh->getPoint(v2idx)[2]);
 	}
 	glEnd();
 }
@@ -276,19 +279,22 @@ void MeshViewerWidget::DrawFlatLines(void) const
 void MeshViewerWidget::DrawFlat(void) const
 {
 	glBegin(GL_TRIANGLES);
-	for (const auto& fh : mesh.faces())
+//	for (const auto& fh : mesh.faces())
+	for (int i=0;i<mesh->NFaces();i++)
 	{
-		glNormal3dv(mesh.normal(fh).data());
-		for (const auto& fvh : mesh.fv_range(fh))
-		{
-			glVertex3dv(mesh.point(fvh).data());
-		}
+		glNormal3d(mesh->getFaceNormal(i).x(), mesh->getFaceNormal(i).y(), mesh->getFaceNormal(i).z());
+		int v1, v2, v3;
+		mesh->getFaceVertices(i, v1, v2, v3);
+		glVertex3d(mesh->getPoint(v1)[0], mesh->getPoint(v1)[1], mesh->getPoint(v1)[2]);
+		glVertex3d(mesh->getPoint(v2)[0], mesh->getPoint(v2)[1], mesh->getPoint(v2)[2]);
+		glVertex3d(mesh->getPoint(v3)[0], mesh->getPoint(v3)[1], mesh->getPoint(v3)[2]);
 	}
 	glEnd();
 }
 
 void MeshViewerWidget::DrawSmooth(void) const
 {
+	/*
 	glColor3d(0.8, 0.8, 0.8);
 	glShadeModel(GL_SMOOTH);
 	glLoadName(static_cast<GLuint>(mesh.n_vertices()));
@@ -307,6 +313,7 @@ void MeshViewerWidget::DrawSmooth(void) const
 	}
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_NORMAL_ARRAY);
+	*/
 }
 
 void MeshViewerWidget::DrawBoundingBox(void) const
@@ -342,17 +349,17 @@ void MeshViewerWidget::DrawBoundary(void) const
 	glLineWidth(2.0f);
 	glColor3d(0.1, 0.1, 0.1);
 	glBegin(GL_LINES);
-	for (const auto& eh : mesh.edges())
+	for (int i=0;i<mesh->NEdges();i++)
+//	for (const auto& eh : mesh.edges())
 	{
-		if (mesh.is_boundary(eh))
+		if (mesh->isBoundary(i))
 		{
-			auto heh = mesh.halfedge_handle(eh, 0);
-			auto vh0 = mesh.from_vertex_handle(heh);
-			auto vh1 = mesh.to_vertex_handle(heh);
-			glNormal3dv(mesh.normal(vh0).data());
-			glVertex3dv(mesh.point(vh0).data());
-			glNormal3dv(mesh.normal(vh1).data());
-			glVertex3dv(mesh.point(vh1).data());
+			int v1idx, v2idx;
+			mesh->getEdgeVertices(i, v1idx, v2idx);
+			glNormal3d(mesh->getVertexNormal(v1idx).x(), mesh->getVertexNormal(v1idx).y(), mesh->getVertexNormal(v1idx).z());
+			glVertex3d(mesh->getPoint(v1idx)[0], mesh->getPoint(v1idx)[1], mesh->getPoint(v1idx)[2]);
+			glNormal3d(mesh->getVertexNormal(v2idx).x(), mesh->getVertexNormal(v2idx).y(), mesh->getVertexNormal(v2idx).z());
+			glVertex3d(mesh->getPoint(v2idx)[0], mesh->getPoint(v2idx)[1], mesh->getPoint(v2idx)[2]);
 		}
 	}
 	glEnd();

@@ -1,7 +1,8 @@
 #pragma once
 #include <QString>
 #include "QGLViewerWidget.h"
-#include "../MeshDefinition.h"
+//#include "../MeshDefinition.h"
+#include "../MeshDefinition/MyMesh.h"
 
 class MeshViewerWidget : public QGLViewerWidget
 {
@@ -40,12 +41,11 @@ private:
 	void DrawBoundingBox(void) const;
 	void DrawBoundary(void) const;
 protected:
-	Mesh mesh;
+	MyMesh* mesh;
 	QString strMeshFileName;
 	QString strMeshBaseName;
 	QString strMeshPath;
-	Mesh::Point ptMin;
-	Mesh::Point ptMax;
+	MyMesh::Point ptMin, ptMax;
 	bool isEnableLighting;
 	bool isTwoSideLighting;
 	bool isDrawBoundingBox;
