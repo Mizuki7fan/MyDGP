@@ -15,9 +15,12 @@ void MeshParamWidget::CreateTabWidget(void)
 {
 	pbPrintInfo = new QPushButton(tr("Print Mesh Info"));
 	connect(pbPrintInfo, SIGNAL(clicked()), SIGNAL(PrintInfoSignal()));
+	pbComputeCurvature = new QPushButton(QStringLiteral("ËãÇúÂÊ"));
+	connect(pbComputeCurvature, SIGNAL(clicked()), SIGNAL(ComputeCurvatureSignal()));
 
 	QVBoxLayout *layout = new QVBoxLayout();
 	layout->addWidget(pbPrintInfo);
+	layout->addWidget(pbComputeCurvature);
 	layout->addStretch();
 	wParam = new QWidget();
 	wParam->setLayout(layout);

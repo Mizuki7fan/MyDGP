@@ -7,6 +7,7 @@
 #include "QGLViewerWidget.h"
 #include <QOpenGLTexture>
 
+
 const double QGLViewerWidget::trackballradius = 0.6;
 
 QGLViewerWidget::QGLViewerWidget(QWidget* _parent)
@@ -217,7 +218,7 @@ void QGLViewerWidget::initializeGL(void)
 	CopyModelViewMatrix();
 
 	SetScenePosition(Eigen::Vector3d(0.0, 0.0, 0.0), 1.0);
-	//LoadTexture();
+	LoadTexture();
 }
 
 void QGLViewerWidget::resizeGL(int _w, int _h)
@@ -262,6 +263,9 @@ void QGLViewerWidget::DrawScene(void)
 		glEnable(GL_LIGHTING);
 		glShadeModel(GL_SMOOTH);
 		//glutSolidTeapot(0.5);
+		break;
+	case CURVATURE:
+		glDisable(GL_LIGHTING);
 		break;
 	default:
 		break;
@@ -330,6 +334,18 @@ void QGLViewerWidget::keyPressEvent(QKeyEvent* _event)
 void QGLViewerWidget::keyReleaseEvent(QKeyEvent* _event)
 {
 	_event->ignore();
+}
+
+void QGLViewerWidget::LoadTexture(void)
+{
+	texture = new QOpenGLTexture(QImage(":/SurfaceMeshProcessing/Texture/texture.png").mirrored());
+	texture->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+	texture->setMagnificationFilter(QOpenGLTexture::LinearMipMapLinear);
+	texture->setWrapMode(QOpenGLTexture::WrapMode::Repeat);
+	colormap = new QOpenGLTexture(QImage(":/SurfaceMeshProcessing/Texture/colorbar.png").mirrored());
+	colormap->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+	colormap->setMagnificationFilter(QOpenGLTexture::LinearMipMapLinear);
+	colormap->setWrapMode(QOpenGLTexture::WrapMode::ClampToEdge);
 }
 
 void QGLViewerWidget::Translation(const QPoint & p)

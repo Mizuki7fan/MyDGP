@@ -30,6 +30,7 @@ void MainViewerWidget::CreateParamWidget(void)
 {
 	meshparamwidget = new MeshParamWidget();
 	connect(meshparamwidget, SIGNAL(PrintInfoSignal()), meshviewerwidget, SLOT(PrintMeshInfo()));
+	connect(meshparamwidget, SIGNAL(ComputeCurvatureSignal()), meshviewerwidget, SLOT(ComputeMeshCurvature()));
 }
 
 void MainViewerWidget::CreateViewerDialog(void)
@@ -143,6 +144,11 @@ void MainViewerWidget::ShowFlat(void)
 void MainViewerWidget::ShowSmooth(void)
 {
 	meshviewerwidget->SetDrawMode(InteractiveViewerWidget::SMOOTH);
+}
+
+void MainViewerWidget::ShowCurvature(void)
+{
+	meshviewerwidget->SetDrawMode(InteractiveViewerWidget::CURVATURE);
 }
 
 void MainViewerWidget::Lighting(bool b)

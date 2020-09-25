@@ -3,6 +3,7 @@
 #include <QWidget>
 #include <QtGui>
 #include <QtWidgets>
+#include <QStackedWidget>
 
 class MeshParamWidget : public QWidget
 {
@@ -16,10 +17,18 @@ private:
 	void CreateLayout(void);
 signals:
 	void PrintInfoSignal();
+	void ComputeCurvatureSignal();
 private:
 	QTabWidget *twParam;
 	QWidget *wParam;
 	QScrollArea *saParam;
 	QPushButton *pbPrintInfo;
+	QPushButton* pbComputeCurvature;
+
+	//总的界面
+	QStackedWidget* m_pStackedWidget;
+
+	QPushButton* General;
+	QPushButton* Chap1;
 
 };

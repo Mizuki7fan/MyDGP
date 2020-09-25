@@ -2,7 +2,13 @@
 //#include <OpenMesh/Core/IO/MeshIO.hh>
 #include "MeshViewerWidget.h"
 #include <iostream>
+#ifdef MESHTOOL_USE_OPENMESH
 #include "../MeshDefinition/MyMesh_Openmesh.h"
+#endif
+#include <QOpenGLTexture>
+#include <QOpenGLFrameBufferObject>
+#include "../DGPAlgorithm.h"
+#include <map>
 
 MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	: QGLViewerWidget(parent),
@@ -156,6 +162,14 @@ void MeshViewerWidget::PrintMeshInfo(void)
 	std::cout << "  Diag length of BBox: " << (ptMax - ptMin).norm() << std::endl;
 }
 
+void MeshViewerWidget::ComputeMeshCurvature()
+{
+	std::vector<double> value;
+	DGPAlgorithm::ComputeMeanCurvature(*mesh, value);
+	MapCurvature(value);//
+	std::cout << 123 << std::endl;
+}
+
 void MeshViewerWidget::DrawScene(void)
 {
 	glMatrixMode(GL_PROJECTION);
@@ -196,6 +210,9 @@ void MeshViewerWidget::DrawSceneMesh(void)
 	case SMOOTH:
 		DrawSmooth();
 		break;
+	case CURVATURE:
+		DrawCurvature();
+		break;
 	default:
 		break;
 	}
@@ -209,7 +226,8 @@ void MeshViewerWidget::DrawPoints(void) const
 	for ( int i = 0; i < mesh->NVertices(); i++)
 	{
 			glVertex3d(mesh->getPoint(i)[0], mesh->getPoint(i)[1], mesh->getPoint(i)[2]);
-			glNormal3d(mesh->getVertexNormal(i).x(), mesh->getVertexNormal(i).y(), mesh->getVertexNormal(i).z());
+			Eigen::Vector3d n = mesh->getVertexNormal(i);
+			glNormal3d(n.x(), n.y(), n.z());
 	}
 	glEnd();
 }
@@ -279,7 +297,6 @@ void MeshViewerWidget::DrawFlatLines(void) const
 void MeshViewerWidget::DrawFlat(void) const
 {
 	glBegin(GL_TRIANGLES);
-//	for (const auto& fh : mesh.faces())
 	for (int i=0;i<mesh->NFaces();i++)
 	{
 		glNormal3d(mesh->getFaceNormal(i).x(), mesh->getFaceNormal(i).y(), mesh->getFaceNormal(i).z());
@@ -316,6 +333,41 @@ void MeshViewerWidget::DrawSmooth(void) const
 	*/
 }
 
+void MeshViewerWidget::DrawCurvature(void) const
+{
+	if (curvature_v.empty() || curvature_v.size() != mesh->NVertices())
+	{
+		std::cerr << "ERROR: DrawColormap() values error." << std::endl;
+		return;
+	}
+//	glEnable(GL_TEXTURE_2D);
+//	colormap->bind();
+	glBegin(GL_TRIANGLES);
+	for (int i=0;i<mesh->NFaces();i++)
+	{
+//		glNormal3d(mesh->getFaceNormal(i).x(), mesh->getFaceNormal(i).y(), mesh->getFaceNormal(i).z());
+		int v1, v2, v3;
+		mesh->getFaceVertices(i, v1, v2, v3);
+		double value = (curvature_v[v1] + curvature_v[v2] + curvature_v[v3]) / 3;
+		if (0 < value && value < 0.25)
+			glColor3d(0, 4 * value, 1);
+		else if (0.25 < value && value < 0.5)
+			glColor3d(0, 1, 1 - 4 * (value - 0.25));
+		else if (0.5 < value && value < 0.75)
+			glColor3d(4 * (value - 0.5), 1, 0);
+		else if (value < 1)
+			glColor3d(1, 1 - 4 * (value - 0.75), 0);
+//		glColor3d()
+
+//		glTexCoord2d(value,value);
+		glVertex3d(mesh->getPoint(v1)[0], mesh->getPoint(v1)[1], mesh->getPoint(v1)[2]);
+		glVertex3d(mesh->getPoint(v2)[0], mesh->getPoint(v2)[1], mesh->getPoint(v2)[2]);
+		glVertex3d(mesh->getPoint(v3)[0], mesh->getPoint(v3)[1], mesh->getPoint(v3)[2]);
+	}
+	glEnd();
+	glDisable(GL_TEXTURE_2D);
+}
+
 void MeshViewerWidget::DrawBoundingBox(void) const
 {
 	float linewidth;
@@ -350,7 +402,6 @@ void MeshViewerWidget::DrawBoundary(void) const
 	glColor3d(0.1, 0.1, 0.1);
 	glBegin(GL_LINES);
 	for (int i=0;i<mesh->NEdges();i++)
-//	for (const auto& eh : mesh.edges())
 	{
 		if (mesh->isBoundary(i))
 		{
@@ -364,4 +415,34 @@ void MeshViewerWidget::DrawBoundary(void) const
 	}
 	glEnd();
 	glLineWidth(linewidth);
+}
+
+void MeshViewerWidget::MapCurvature(const std::vector<double>& values)
+{
+	curvature_v.clear();
+	curvature_v.resize(values.size());
+	//¼òµ¥ÅÅÐò
+	struct k_v
+	{
+		k_v(int i, double v) { vid = i, value = v; };
+		bool operator> (k_v& b)
+		{
+			return value > b.value;
+		}
+		bool operator< (k_v& b)
+		{
+			return value < b.value;
+		}
+		int vid;
+		double value;
+	};
+	std::vector<k_v> curvature;
+	for (int i = 0; i < values.size(); i++)
+		curvature.push_back(k_v(i, values[i]));
+	std::sort(curvature.begin(), curvature.end());
+	for (int i = 0; i < values.size(); i++)
+	{
+		curvature_v[curvature[i].vid] = double(i) / values.size();
+	}
+
 }

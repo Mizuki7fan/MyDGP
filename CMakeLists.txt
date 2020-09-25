@@ -13,6 +13,12 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     add_definitions(/DQT_WIDGETS_LIB)
 endif()
 
+#指定选用的网格库
+option(MESHTOOL_USE_OPENMESH "Meshtool Use Openmesh" ON)
+option(MESHTOOL_USE_CGAL "Meshtool Use Cgal" OFF)
+option(MESHTOOL_USE_Libigl "Meshtool Use Libigl" OFF)
+option(MESHTOOL_USE_Diy "Meshtool Use Diy" OFF)
+
 #QT相关设置
 set(CMAKE_INCLUDE_CURRENT_DIR ON) #设置工程包含当前目录，非必须
 set(CMAKE_AUTOMOC ON) #设置自动生成moc文件，一定要设置
@@ -34,16 +40,23 @@ qt5_add_resources(QRC_FILES ${QRC_SOURCE_FILES})
 
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
     message(STATUS "the OS is windows")
-    include_directories("D:/LIBRARY/ANN")
     include_directories("D:/LIBRARY/Eigen")
-    include_directories("D:/LIBRARY/OpenMesh/src")
+    if (MESHTOOL_USE_OPENMESH)
+        include_directories("D:/LIBRARY/OpenMesh/src")
+        SET(MESHTOOL_CPP MyMesh_Openmesh.cpp)
+        add_definitions(-DMESHTOOL_USE_OPENMESH)
+    endif()
     include_directories("D:/LIBRARY/freeglut/include")
+    include_directories("D:/LIBRARY/ANN")
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         #link_directories("D:/LIBRARY/OpenMesh/build_cmake/Build/lib")
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+        if (MESHTOOL_USE_OPENMESH)
         link_directories("D:/LIBRARY/OpenMesh/build_vs/Build/lib")
-        link_directories("D:/LIBRARY/ANN/build")
+        SET(MESHTOOL_LIBRARY OpenMeshCore OpenMeshTools)
+        endif()
         link_directories("D:/LIBRARY/freeglut/build/lib/Release")
+        link_directories("D:/LIBRARY/ANN/build")
     endif()
 
 elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
@@ -56,6 +69,8 @@ endif()
 file (GLOB SRCFILES
     src/*.cpp
     src/MeshViewer/*.cpp
+    src/MeshDefinition/MyMesh.cpp
+    src/MeshDefinition/${MESHTOOL_CPP}
 )
 
 add_executable(${PROJECT_NAME} ${SRCFILES} ${QRC_FILES})
@@ -68,8 +83,7 @@ COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>"
 endif()
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Core Qt5::Gui Qt5::OpenGL
-    optimized OpenMeshCore
-    optimized OpenMeshTools 
+    ${MESHTOOL_LIBRARY}
     optimized opengl32
     optimized glu32
     optimized ANN

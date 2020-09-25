@@ -1,5 +1,4 @@
 #pragma once
-//#include <OpenMesh/Core/Geometry/VectorT.hh>
 #include <QOpenGLWidget>
 #include <Eigen/Dense>
 class QOpenGLTexture;
@@ -28,7 +27,7 @@ public:
 	void SetProjectionMode(const ProjectionMode &pm);
 	const ProjectionMode & GetProjectionMode(void) const;
 
-	enum DrawMode{ POINTS, WIREFRAME, HIDDENLINES, FLATLINES, FLAT, SMOOTH };
+	enum DrawMode{ POINTS, WIREFRAME, HIDDENLINES, FLATLINES, FLAT, SMOOTH,CURVATURE };
 	void SetDrawMode(const DrawMode &dm);
 	const DrawMode& GetDrawMode(void) const;
 
@@ -47,6 +46,7 @@ protected:
 	virtual void keyPressEvent(QKeyEvent*) override;
 	virtual void keyReleaseEvent(QKeyEvent*) override;
 private:
+	void LoadTexture(void);
 	void Translation(const QPoint & p);
 	void Translate(const Eigen::Vector3d & trans);
 	void Rotation(const QPoint & p);
@@ -57,6 +57,8 @@ public:
 	void SetScenePosition(const Eigen::Vector3d & c, const double & r);
 	void ViewAll(void);
 protected:
+	QOpenGLTexture* texture;
+	QOpenGLTexture* colormap;
 	DrawMode drawmode;
 	ProjectionMode projectionmode;
 	double windowleft;

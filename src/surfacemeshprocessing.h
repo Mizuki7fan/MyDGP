@@ -36,6 +36,7 @@ private:
 	QAction *actFlatLines;
 	QAction *actFlat;
 	QAction *actSmooth;
+	QAction* actCurvature;
 	QAction *actLighting;
 	QAction *actDoubleSide;
 	QAction *actBoundingBox;

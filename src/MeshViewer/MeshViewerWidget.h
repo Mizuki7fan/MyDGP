@@ -1,8 +1,8 @@
 #pragma once
 #include <QString>
 #include "QGLViewerWidget.h"
-//#include "../MeshDefinition.h"
 #include "../MeshDefinition/MyMesh.h"
+#include <vector>
 
 class MeshViewerWidget : public QGLViewerWidget
 {
@@ -27,6 +27,7 @@ signals:
 	void LoadMeshOKSignal(bool, QString);
 public slots:
 	void PrintMeshInfo(void);
+	void ComputeMeshCurvature(void);
 protected:
 	virtual void DrawScene(void) override;
 	void DrawSceneMesh(void);
@@ -38,8 +39,12 @@ private:
 	void DrawFlatLines(void) const;
 	void DrawFlat(void) const;
 	void DrawSmooth(void) const;
+	void DrawCurvature(void) const;
 	void DrawBoundingBox(void) const;
 	void DrawBoundary(void) const;
+	void DrawTexture(void) const;
+	void DrawColormap(void) const;
+	void MapCurvature(const std::vector<double>& values);
 protected:
 	MyMesh* mesh;
 	QString strMeshFileName;
@@ -50,4 +55,6 @@ protected:
 	bool isTwoSideLighting;
 	bool isDrawBoundingBox;
 	bool isDrawBoundary;
+	std::vector<double> colormapvalues;
+	std::vector<double> curvature_v;
 };

@@ -11,6 +11,7 @@ public:
     {
         //        Eigen::Vector3d p;
         double v[3];
+        Point() { v[0] = v[1] = v[2] = 0; };
         Point(double x)
         {
             v[0] = v[1] = v[2] = x;
@@ -45,7 +46,14 @@ public:
         void operator=(double value)
         {
             v[0] = v[1] = v[2] = value;
-//            return Point(v[0] + p.v[0], v[1] + p.v[1], v[2] + p.v[2]);
+        }
+        void operator=(Point& p)
+        {
+            v[0] = p.v[0]; v[1] = p.v[1]; v[2] = p.v[2];
+        }
+        void operator=(Eigen::Vector3d& p)
+        {
+            v[0] = p.x(); v[1] = p.y(); v[2] = p.z();
         }
         Point operator-(Point& p)
         {
@@ -54,6 +62,10 @@ public:
         Point operator*(double t)
         {
             return Point(v[0] * t, v[1] * t, v[2] * t);
+        }
+        Point operator/(double t)
+        {
+            return Point(v[0] / t, v[1] / t, v[2] / t);
         }
         double norm()
         {
@@ -83,10 +95,24 @@ public:
     virtual int NEdges() const = 0;
     virtual int NFaces() const = 0;
     virtual double CalcEdgeLength(int i) = 0;
+    virtual double CalcFaceArea() = 0;
     virtual Point getPoint(int i) const = 0;
     virtual Eigen::Vector3d getVertexNormal(int i) const = 0;
     virtual Eigen::Vector3d getFaceNormal(int i) const = 0;
     virtual void getEdgeVertices(int e, int& v1, int& v2) const = 0;
     virtual void getFaceVertices(int f, int& v1, int& v2, int& v3) const = 0;
+    virtual void getFaceAngles(int f, double& angle1, double& angle2, double& angle3) const = 0;
     virtual bool isBoundary(int) const = 0;
+
+private:
+    void ComputeLocalAveragingRegion(int kind,std::vector<double>& area);//获取点的平均区域，暂时是获取面积
+    void ComputeTriangleArea(Point& p1, Point& p2, Point& p3);
+    double ComputeArea(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3);
+    Eigen::Vector3d ComputeTriangleCenter(Eigen::Vector3d normal, Eigen::Vector3d p1, Eigen::Vector3d p2, Eigen::Vector3d p3);
+
+public:
+    void UpdateMeanCurvature();
+    void UpdateGaussianCurvature();
+    void getVCurvature(std::vector<double>& c) { c = VCurvature; };
+    std::vector<double> VCurvature;
 };

@@ -1,15 +1,20 @@
 #include <QtCore>
 #include <QtGui>
 #include "InteractiveViewerWidget.h"
+#include "ANN/ANN.h"
 
 InteractiveViewerWidget::InteractiveViewerWidget(QWidget* parent /* = 0 */)
 	:MeshViewerWidget(parent)
 {
+	clearSelectedData();
+	kdTree = NULL;
 }
 
 InteractiveViewerWidget::~InteractiveViewerWidget()
 {
+	if (kdTree) delete kdTree;
 }
+
 
 void InteractiveViewerWidget::dragEnterEvent(QDragEnterEvent* event)
 {
