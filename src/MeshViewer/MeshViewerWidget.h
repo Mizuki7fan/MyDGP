@@ -27,7 +27,8 @@ signals:
 	void LoadMeshOKSignal(bool, QString);
 public slots:
 	void PrintMeshInfo(void);
-	void ComputeMeshCurvature(void);
+	void ComputeCurvature(int, int);
+
 protected:
 	virtual void DrawScene(void) override;
 	void DrawSceneMesh(void);

@@ -1,15 +1,25 @@
 #include "DGPAlgorithm.h"
-/*
-void DGPAlgorithm::ComputeCurvature(const MyMesh& mesh, std::vector<double>& curvature)
+
+void DGPAlgorithm::ComputeCurvature(int localaverageregionKind, int curvatureKind, MyMesh& mesh, std::vector<double>& curvature)
 {
-	int N = mesh.NVertices();
-	curvature.resize(N);
-	for (int i = 0; i < mesh.NVertices(); i++)
+	mesh.ComputeLocalAveragingRegion(localaverageregionKind);
+	switch (curvatureKind)
 	{
-		curvature[i] = 1-i / double(N);
+	case 0:
+		ComputeMeanCurvature(mesh, curvature);
+		break;
+	case 1:
+		ComputeMeanCurvature(mesh, curvature);
+		for (int i = 0; i < curvature.size(); i++)
+			if (curvature[i] < 0) curvature[i] = -curvature[i];
+		break;
+	case 2:
+		ComputeGaussianCurvature(mesh, curvature);
+		break;
+	default:
+		break;
 	}
 }
-*/
 void DGPAlgorithm::ComputeMeanCurvature( MyMesh& mesh, std::vector<double>& curvature)
 {//算平均曲率
 	//对于每个点，算其平均区域的信息
@@ -20,7 +30,6 @@ void DGPAlgorithm::ComputeMeanCurvature( MyMesh& mesh, std::vector<double>& curv
 
 void DGPAlgorithm::ComputeGaussianCurvature( MyMesh& mesh, std::vector<double>& curvature)
 {
-	//double area = mesh.CalcFaceArea();
 	mesh.UpdateGaussianCurvature();
 	mesh.getVCurvature(curvature);
 }

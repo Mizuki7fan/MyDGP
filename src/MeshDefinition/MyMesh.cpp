@@ -1,8 +1,9 @@
 #include "MyMesh.h"
 
-void MyMesh::ComputeLocalAveragingRegion(int kind, std::vector<double>& area)
+void MyMesh::ComputeLocalAveragingRegion(int kind)
 {//类型:重心、Voronoi、混合
-	area.resize(NFaces());
+	V_LocalAverageRegionArea.clear();
+	V_LocalAverageRegionArea.resize(NFaces());
 	//遍历每一个面，获取面的"中心"
 	for (int i = 0; i < NFaces(); i++)
 	{
@@ -11,13 +12,13 @@ void MyMesh::ComputeLocalAveragingRegion(int kind, std::vector<double>& area)
 		getFaceVertices(i, v1, v2, v3);
 		Point p1 = getPoint(v1), p2 = getPoint(v2), p3 = getPoint(v3);
 		Point m12 = (p1 + p2) / 2, m13 = (p1 + p3) / 2, m23 = (p2 + p3) / 2;
-		if (kind == 1)//重心坐标
+		if (kind ==0)//重心坐标
 		{
 			center1 = ((p1 + p2 + p3) / 3).toEigen3d();
 			center2 = center1;
 			center3 = center1;
 		}
-		else if (kind == 2)//Voronoi
+		else if (kind == 1)//Voronoi
 		{
 			Eigen::Vector3d f_normal = getFaceNormal(i);
 			//Eigen::vec3d
@@ -28,7 +29,7 @@ void MyMesh::ComputeLocalAveragingRegion(int kind, std::vector<double>& area)
 			double test2=(center2 - m23.toEigen3d()).dot(center2 - m12.toEigen3d());
 			double test3=(center3 - m13.toEigen3d()).dot(center3 - m23.toEigen3d());
 		}
-		else if (kind == 3) //Mixed
+		else if (kind == 2) //Mixed
 		{
 			Eigen::Vector3d f_normal = getFaceNormal(i);
 			double angle1, angle2, angle3;
@@ -46,9 +47,9 @@ void MyMesh::ComputeLocalAveragingRegion(int kind, std::vector<double>& area)
 			else
 				center3 = (p2 + p1).toEigen3d() / 2;
 		}
-		area[v1] += ComputeArea(p1.toEigen3d(), m12.toEigen3d(), center1) + ComputeArea(p1.toEigen3d(), m13.toEigen3d(), center1);
-		area[v2] += ComputeArea(p2.toEigen3d(), m12.toEigen3d(), center2) + ComputeArea(p2.toEigen3d(), m23.toEigen3d(), center2);
-		area[v3] += ComputeArea(p3.toEigen3d(), m13.toEigen3d(), center3) + ComputeArea(p3.toEigen3d(), m23.toEigen3d(), center3);
+		V_LocalAverageRegionArea[v1] += ComputeArea(p1.toEigen3d(), m12.toEigen3d(), center1) + ComputeArea(p1.toEigen3d(), m13.toEigen3d(), center1);
+		V_LocalAverageRegionArea[v2] += ComputeArea(p2.toEigen3d(), m12.toEigen3d(), center2) + ComputeArea(p2.toEigen3d(), m23.toEigen3d(), center2);
+		V_LocalAverageRegionArea[v3] += ComputeArea(p3.toEigen3d(), m13.toEigen3d(), center3) + ComputeArea(p3.toEigen3d(), m23.toEigen3d(), center3);
 	}
 }
 
@@ -75,9 +76,8 @@ Eigen::Vector3d MyMesh::ComputeTriangleCenter(Eigen::Vector3d f_normal, Eigen::V
 
 void MyMesh::UpdateMeanCurvature()
 {
+	VCurvature.clear();
 	VCurvature.resize(NVertices());
-	std::vector<double> area;
-	ComputeLocalAveragingRegion(1, area);
 	std::vector<double> x_curvature(NVertices(), 0);
 	std::vector<double> y_curvature(NVertices(), 0);
 	std::vector<double> z_curvature(NVertices(), 0);
@@ -89,29 +89,29 @@ void MyMesh::UpdateMeanCurvature()
 		getFaceAngles(i, angle1, angle2, angle3);
 		Point p1 = getPoint(v1), p2 = getPoint(v2), p3 = getPoint(v3);
 		//v1v2边
-		x_curvature[v1] += (atan(angle3)) / area[v1]*(p2-p1).v[0];
-		y_curvature[v1]+= (atan(angle3)) / area[v1] * (p2 - p1).v[1];
-		z_curvature[v1]+= (atan(angle3)) / area[v1] * (p2 - p1).v[2];
+		x_curvature[v1] += (atan(angle3)) / V_LocalAverageRegionArea[v1]*(p2-p1).v[0];
+		y_curvature[v1]+= (atan(angle3)) / V_LocalAverageRegionArea[v1] * (p2 - p1).v[1];
+		z_curvature[v1]+= (atan(angle3)) / V_LocalAverageRegionArea[v1] * (p2 - p1).v[2];
 		//v2v1边
-		x_curvature[v2] += (atan(angle3)) / area[v2] * (p1 - p2).v[0];
-		y_curvature[v2] += (atan(angle3)) / area[v2] * (p1 - p2).v[1];
-		z_curvature[v2] += (atan(angle3)) / area[v2] * (p1 - p2).v[2];
+		x_curvature[v2] += (atan(angle3)) / V_LocalAverageRegionArea[v2] * (p1 - p2).v[0];
+		y_curvature[v2] += (atan(angle3)) / V_LocalAverageRegionArea[v2] * (p1 - p2).v[1];
+		z_curvature[v2] += (atan(angle3)) / V_LocalAverageRegionArea[v2] * (p1 - p2).v[2];
 		//v1v3边
-		x_curvature[v1] += (atan(angle2)) / area[v1] * (p3 - p1).v[0];
-		y_curvature[v1] += (atan(angle2)) / area[v1] * (p3 - p1).v[1];
-		z_curvature[v1] += (atan(angle2)) / area[v1] * (p3 - p1).v[2];
+		x_curvature[v1] += (atan(angle2)) / V_LocalAverageRegionArea[v1] * (p3 - p1).v[0];
+		y_curvature[v1] += (atan(angle2)) / V_LocalAverageRegionArea[v1] * (p3 - p1).v[1];
+		z_curvature[v1] += (atan(angle2)) / V_LocalAverageRegionArea[v1] * (p3 - p1).v[2];
 		//v3v1边		
-		x_curvature[v3] += (atan(angle2)) / area[v3] * (p1 - p3).v[0];
-		y_curvature[v3] += (atan(angle2)) / area[v3] * (p1 - p3).v[1];
-		z_curvature[v3] += (atan(angle2)) / area[v3] * (p1 - p3).v[2];
+		x_curvature[v3] += (atan(angle2)) / V_LocalAverageRegionArea[v3] * (p1 - p3).v[0];
+		y_curvature[v3] += (atan(angle2)) / V_LocalAverageRegionArea[v3] * (p1 - p3).v[1];
+		z_curvature[v3] += (atan(angle2)) / V_LocalAverageRegionArea[v3] * (p1 - p3).v[2];
 		//v2v3边
-		x_curvature[v2] += (atan(angle1)) / area[v2] * (p3 - p2).v[0];
-		y_curvature[v2] += (atan(angle1)) / area[v2] * (p3 - p2).v[1];
-		z_curvature[v2] += (atan(angle1)) / area[v2] * (p3 - p2).v[2];
+		x_curvature[v2] += (atan(angle1)) / V_LocalAverageRegionArea[v2] * (p3 - p2).v[0];
+		y_curvature[v2] += (atan(angle1)) / V_LocalAverageRegionArea[v2] * (p3 - p2).v[1];
+		z_curvature[v2] += (atan(angle1)) / V_LocalAverageRegionArea[v2] * (p3 - p2).v[2];
 		//v3v2边
-		x_curvature[v3] += (atan(angle1)) / area[v3] * (p2 - p3).v[0];
-		y_curvature[v3] += (atan(angle1)) / area[v3] * (p2 - p3).v[1];
-		z_curvature[v3] += (atan(angle1)) / area[v3] * (p2 - p3).v[2];
+		x_curvature[v3] += (atan(angle1)) / V_LocalAverageRegionArea[v3] * (p2 - p3).v[0];
+		y_curvature[v3] += (atan(angle1)) / V_LocalAverageRegionArea[v3] * (p2 - p3).v[1];
+		z_curvature[v3] += (atan(angle1)) / V_LocalAverageRegionArea[v3] * (p2 - p3).v[2];
 	}
 	for (int i = 0; i < NVertices(); i++)
 	{
@@ -123,8 +123,7 @@ void MyMesh::UpdateGaussianCurvature()
 {
 	VCurvature.clear();
 	VCurvature.resize(NVertices());
-	std::vector<double> area;
-	ComputeLocalAveragingRegion(3, area);
+
 	std::vector<double> v_angledefect(NVertices(),2*M_PI);
 	for (int i = 0; i < NFaces(); i++)
 	{
@@ -138,6 +137,6 @@ void MyMesh::UpdateGaussianCurvature()
 	}
 	for (int i = 0; i < NVertices(); i++)
 	{
-		VCurvature[i]=	v_angledefect[i] / area[i];
+		VCurvature[i]=	v_angledefect[i] / V_LocalAverageRegionArea[i];
 	}
 }

@@ -18,19 +18,20 @@ MainViewerWidget::~MainViewerWidget(void)
 void MainViewerWidget::InitViewerWindow(void)
 {
 	CreateViewerDialog();
-	CreateParamWidget();
+	CreateParamWidget(); 
 
 	QHBoxLayout* main_layout = new QHBoxLayout();
-	main_layout->addWidget(meshparamwidget);
-	main_layout->addWidget(meshviewerwidget, 1);
+	main_layout->addWidget(meshparamwidget,1);
+	main_layout->addWidget(meshviewerwidget, 6);
 	this->setLayout(main_layout);
 }
 
 void MainViewerWidget::CreateParamWidget(void)
 {
 	meshparamwidget = new MeshParamWidget();
-	connect(meshparamwidget, SIGNAL(PrintInfoSignal()), meshviewerwidget, SLOT(PrintMeshInfo()));
-	connect(meshparamwidget, SIGNAL(ComputeCurvatureSignal()), meshviewerwidget, SLOT(ComputeMeshCurvature()));
+	connect(meshparamwidget->wGeneral, SIGNAL(PrintInfo()), meshviewerwidget, SLOT(PrintMeshInfo()));
+	connect(meshparamwidget->wChap1, SIGNAL(ComputeCurvatureSignal(int, int)), meshviewerwidget, SLOT(ComputeCurvature(int, int)));
+	//connect(meshparamwidget, SIGNAL(ComputeCurvatureSignal()), meshviewerwidget, SLOT(ComputeMeshCurvature()));
 }
 
 void MainViewerWidget::CreateViewerDialog(void)

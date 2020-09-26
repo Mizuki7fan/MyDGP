@@ -18,8 +18,7 @@ signals:
 	void Gen_PrintInfoSignal();//General功能
 	void Ch1_ComputeCurvatureSignal();//第一章
 public slots:
-	void SetWidgetVisible(int i);
-	void SetControlPanelVisible();
+	void SetShowWidget(int i);
 private:
 	QStackedWidget* m_pStackedWidget;
 	QWidget* pChap1;
@@ -27,8 +26,9 @@ private:
 	QPushButton* pbReturn;
 	QPushButton* pbGeneral;
 	QPushButton* pbChap1;
-
+public:
 	ControlPanel* wControlPanel;
 	GeneralWidget* wGeneral;
+	DiscreteDifferentialGeometryWidget* wChap1;
 
 };

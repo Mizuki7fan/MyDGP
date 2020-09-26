@@ -6,47 +6,28 @@ MeshParamWidget::MeshParamWidget(QWidget *parent)
 {
 	wControlPanel = new ControlPanel();
 	wGeneral = new GeneralWidget();
+	wChap1 = new DiscreteDifferentialGeometryWidget();
+
+	m_pStackedWidget = new QStackedWidget();
+	m_pStackedWidget->addWidget(wControlPanel);
+	m_pStackedWidget->addWidget(wGeneral);
+	m_pStackedWidget->addWidget(wChap1);
+	m_pStackedWidget->setCurrentIndex(0);
 	QVBoxLayout* layout = new QVBoxLayout();
-	layout->addWidget(wControlPanel);
-	layout->addWidget(wGeneral);
+	layout->addWidget(m_pStackedWidget);
+	layout->setMargin(0);
 	this->setLayout(layout);
 
-	SetControlPanelVisible();//初始设置控制面板为可见
-	connect(wControlPanel, SIGNAL(changeWidget(int)), this, SLOT(SetWidgetVisible(int)));
-	connect(wGeneral, SIGNAL(ReturnToControlPanel(void)), this, SLOT(SetControlPanelVisible()));
+	connect(wControlPanel, SIGNAL(changeWidget(int)), this,SLOT(SetShowWidget(int)));
+	connect(wGeneral, SIGNAL(changeWidget(int)), this, SLOT(SetShowWidget(int)));
+	connect(wChap1, SIGNAL(changeWidget(int)), this, SLOT(SetShowWidget(int)));
 }
 
 MeshParamWidget::~MeshParamWidget()
 {
 }
 
-void MeshParamWidget::SetControlPanelVisible()
+void MeshParamWidget::SetShowWidget(int i)
 {
-	wGeneral->setVisible(false);
-	wControlPanel->setVisible(true);
+	m_pStackedWidget->setCurrentIndex(i);
 }
-
-
-void MeshParamWidget::SetWidgetVisible(int i)
-{
-	wControlPanel->setVisible(false);
-	switch (i)
-	{
-	case 0:
-		wGeneral->setVisible(true);
-	default:
-		break;
-	}
-
-}
-
-
-
-
-
-
-
-
-
-//	connect(pbPrintInfo, SIGNAL(clicked()), SIGNAL(PrintInfoSignal()));
-//	connect(pbComputeCurvature, SIGNAL(clicked()), SIGNAL(ComputeCurvatureSignal()));

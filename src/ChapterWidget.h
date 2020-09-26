@@ -3,7 +3,21 @@
 #include <QWidget>
 #include <QtGui>
 
-class ControlPanel :public QWidget
+class MyWidget :public QWidget
+{
+	Q_OBJECT;
+public:
+	MyWidget(QWidget* _parent = 0);
+	~MyWidget();
+protected:
+	QLabel* lName;
+	QPushButton* pbReturn;
+protected:
+signals:
+	void changeWidget(int i);
+};
+
+class ControlPanel :public MyWidget
 {
 	Q_OBJECT;
 public:
@@ -11,16 +25,12 @@ public:
 	~ControlPanel();
 
 private:
-signals:
-	void changeWidget(int i);
-
-private:
 	QPushButton* pbGeneral;
 	QPushButton* pbChap1;
 
 };
 
-class GeneralWidget :public QWidget
+class GeneralWidget :public MyWidget
 {
 	Q_OBJECT;
 public:
@@ -28,10 +38,24 @@ public:
 	~GeneralWidget();
 private:
 signals:
-	void ReturnToControlPanel();
-	void PrintInfoSignal();
+	void PrintInfo();
 
 private:
-	QPushButton* pbReturn;
 	QPushButton* pbPrintInfo;
+};
+
+class DiscreteDifferentialGeometryWidget :public MyWidget
+{
+	Q_OBJECT;
+public:
+	DiscreteDifferentialGeometryWidget(QWidget* _parent = 0);
+	~DiscreteDifferentialGeometryWidget();
+private:
+signals:
+	void ComputeCurvatureSignal(int,int);
+private:
+	QComboBox* qbLocalAverageRegion;
+	QComboBox* qbCurvatureKind;
+	QPushButton* pbComputeCurvature;
+
 };

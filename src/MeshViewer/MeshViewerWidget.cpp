@@ -162,10 +162,12 @@ void MeshViewerWidget::PrintMeshInfo(void)
 	std::cout << "  Diag length of BBox: " << (ptMax - ptMin).norm() << std::endl;
 }
 
-void MeshViewerWidget::ComputeMeshCurvature()
+void MeshViewerWidget::ComputeCurvature(int i, int j)
 {
 	std::vector<double> value;
-	DGPAlgorithm::ComputeMeanCurvature(*mesh, value);
+	DGPAlgorithm::ComputeCurvature(i,j,*mesh, value);
+	for (int i = 0; i < 100; i++)
+		std::cout << value[i] << std::endl;
 	MapCurvature(value);//
 	std::cout << 123 << std::endl;
 }

@@ -105,14 +105,15 @@ public:
     virtual bool isBoundary(int) const = 0;
 
 private:
-    void ComputeLocalAveragingRegion(int kind,std::vector<double>& area);//获取点的平均区域，暂时是获取面积
     void ComputeTriangleArea(Point& p1, Point& p2, Point& p3);
     double ComputeArea(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3);
     Eigen::Vector3d ComputeTriangleCenter(Eigen::Vector3d normal, Eigen::Vector3d p1, Eigen::Vector3d p2, Eigen::Vector3d p3);
 
 public:
+    void ComputeLocalAveragingRegion(int kind);//获取点的平均区域，暂时是获取面积
     void UpdateMeanCurvature();
     void UpdateGaussianCurvature();
-    void getVCurvature(std::vector<double>& c) { c = VCurvature; };
     std::vector<double> VCurvature;
+    void getVCurvature(std::vector<double>& c) { c = VCurvature; };
+    std::vector<double> V_LocalAverageRegionArea;
 };
