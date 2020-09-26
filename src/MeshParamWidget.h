@@ -4,6 +4,7 @@
 #include <QtGui>
 #include <QtWidgets>
 #include <QStackedWidget>
+#include "ChapterWidget.h"
 
 class MeshParamWidget : public QWidget
 {
@@ -13,22 +14,21 @@ public:
 	MeshParamWidget(QWidget *parent = 0);
 	~MeshParamWidget(void);
 private:
-	void CreateTabWidget(void);
-	void CreateLayout(void);
-signals:
-	void PrintInfoSignal();
-	void ComputeCurvatureSignal();
+signals:   
+	void Gen_PrintInfoSignal();//General功能
+	void Ch1_ComputeCurvatureSignal();//第一章
+public slots:
+	void SetWidgetVisible(int i);
+	void SetControlPanelVisible();
 private:
-	QTabWidget *twParam;
-	QWidget *wParam;
-	QScrollArea *saParam;
-	QPushButton *pbPrintInfo;
-	QPushButton* pbComputeCurvature;
-
-	//总的界面
 	QStackedWidget* m_pStackedWidget;
+	QWidget* pChap1;
+	
+	QPushButton* pbReturn;
+	QPushButton* pbGeneral;
+	QPushButton* pbChap1;
 
-	QPushButton* General;
-	QPushButton* Chap1;
+	ControlPanel* wControlPanel;
+	GeneralWidget* wGeneral;
 
 };

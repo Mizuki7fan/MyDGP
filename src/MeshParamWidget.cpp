@@ -1,41 +1,52 @@
 #include "MeshParamWidget.h"
+#include <iostream>
 
 MeshParamWidget::MeshParamWidget(QWidget *parent)
 	: QWidget(parent)
 {
-	CreateTabWidget();
-	CreateLayout();
+	wControlPanel = new ControlPanel();
+	wGeneral = new GeneralWidget();
+	QVBoxLayout* layout = new QVBoxLayout();
+	layout->addWidget(wControlPanel);
+	layout->addWidget(wGeneral);
+	this->setLayout(layout);
+
+	SetControlPanelVisible();//初始设置控制面板为可见
+	connect(wControlPanel, SIGNAL(changeWidget(int)), this, SLOT(SetWidgetVisible(int)));
+	connect(wGeneral, SIGNAL(ReturnToControlPanel(void)), this, SLOT(SetControlPanelVisible()));
 }
 
 MeshParamWidget::~MeshParamWidget()
 {
 }
 
-void MeshParamWidget::CreateTabWidget(void)
+void MeshParamWidget::SetControlPanelVisible()
 {
-	pbPrintInfo = new QPushButton(tr("Print Mesh Info"));
-	connect(pbPrintInfo, SIGNAL(clicked()), SIGNAL(PrintInfoSignal()));
-	pbComputeCurvature = new QPushButton(QStringLiteral("算曲率"));
-	connect(pbComputeCurvature, SIGNAL(clicked()), SIGNAL(ComputeCurvatureSignal()));
-
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(pbPrintInfo);
-	layout->addWidget(pbComputeCurvature);
-	layout->addStretch();
-	wParam = new QWidget();
-	wParam->setLayout(layout);
-	saParam = new QScrollArea();
-	saParam->setFocusPolicy(Qt::NoFocus);
-	saParam->setFrameStyle(QFrame::NoFrame);
-	saParam->setWidget(wParam);
-	saParam->setWidgetResizable(true);
+	wGeneral->setVisible(false);
+	wControlPanel->setVisible(true);
 }
 
-void MeshParamWidget::CreateLayout(void)
+
+void MeshParamWidget::SetWidgetVisible(int i)
 {
-	twParam = new QTabWidget();
-	twParam->addTab(saParam, "Tab");
-	QGridLayout *layout = new QGridLayout();
-	layout->addWidget(twParam, 0, 0, 1, 1);
-	this->setLayout(layout);
+	wControlPanel->setVisible(false);
+	switch (i)
+	{
+	case 0:
+		wGeneral->setVisible(true);
+	default:
+		break;
+	}
+
 }
+
+
+
+
+
+
+
+
+
+//	connect(pbPrintInfo, SIGNAL(clicked()), SIGNAL(PrintInfoSignal()));
+//	connect(pbComputeCurvature, SIGNAL(clicked()), SIGNAL(ComputeCurvatureSignal()));
