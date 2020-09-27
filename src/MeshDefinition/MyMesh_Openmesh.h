@@ -45,6 +45,7 @@ public:
 	bool isBoundary(int) const;
 	void SetVerticeNewCoord(int, Eigen::Vector3d);
 	Eigen::Vector3d getVertexCoord(int);
+	void ComputeLaplacian(int);
 
 	T mesh;
 private:

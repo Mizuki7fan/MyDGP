@@ -77,18 +77,12 @@ public:
         }
     };
 
-    struct Vertice
-    {
-        int id;
-        Point p;
-
-    };
 private:
 
 public:
-    virtual bool Load(std::string) = 0;
-    virtual bool Write(std::string) = 0;
-    virtual void Clear() = 0;
+    virtual bool Load(std::string) = 0;//读入网格
+    virtual bool Write(std::string) = 0;//导出网格
+    virtual void Clear() = 0;//清理网格
     virtual void UpdateNormals() = 0;
     virtual bool VerticesEmpty() = 0;
     virtual int NVertices() const = 0;
@@ -106,13 +100,15 @@ public:
     virtual bool isBoundary(int) const = 0;
     virtual void SetVerticeNewCoord(int, Eigen::Vector3d) =0;
     virtual Eigen::Vector3d getVertexCoord(int)  = 0;
+    
+    virtual void ComputeLaplacian(int) = 0;//构建Laplacian矩阵
 
 private:
-    void ComputeTriangleArea(Point& p1, Point& p2, Point& p3);
     double ComputeArea(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3);
     Eigen::Vector3d ComputeTriangleCenter(Eigen::Vector3d normal, Eigen::Vector3d p1, Eigen::Vector3d p2, Eigen::Vector3d p3);
 
 public:
+  //  void ComputeLaplacian(int kind);
     void ComputeLocalAveragingRegion(int kind);//获取点的平均区域，暂时是获取面积
     void UpdateMeanCurvature();
     void UpdateGaussianCurvature();
@@ -121,8 +117,10 @@ public:
     void getVCurvature(std::vector<double>& c) { c = VCurvature; };
     std::vector<double> V_LocalAverageRegionArea;
 
-    private:
+protected:
         Eigen::Matrix3d Vertices;//网格顶点
-        Eigen::MatrixXd Laplacian;//拉普拉斯矩阵
+        Eigen::Matrix3d FaceNormal;//面法向，唯一
+        Eigen::Matrix3d VertexNormal;//顶点法向，多种加权方式
+        Eigen::MatrixXd Laplacian;//拉普拉斯矩阵，两种uniform或者cotangent
 
 };

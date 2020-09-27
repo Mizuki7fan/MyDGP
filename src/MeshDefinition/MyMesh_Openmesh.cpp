@@ -150,3 +150,31 @@ Eigen::Vector3d Mesh::getVertexCoord(int i)
 	T::Point p = mesh.point(vh);
 	return Eigen::Vector3d(p.data()[0],p.data()[1],p.data()[2]);
 }
+
+void Mesh::ComputeLaplacian(int kind)
+{
+	//使用Openmesh的函数功能来填装Laplacian
+	int nv = mesh.n_vertices();
+	Laplacian.resize(nv, nv);
+	if (kind == 1)
+	{
+		//如何快速构建uniform的Laplacian
+		for (T::VertexHandle vh : mesh.vertices())
+		{
+			int idx = vh.idx();
+			Laplacian(idx, idx) = 1;
+			int n_range = 0;
+			for (auto vv : mesh.vv_range(vh))
+				n_range++;
+			for (auto vv : mesh.vv_range(vh))
+			{
+				Laplacian(idx, vv.idx()) = -1.0 / n_range;
+			}
+		}
+	}
+	else if (kind == 2)
+	{
+
+	}
+
+}

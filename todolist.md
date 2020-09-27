@@ -57,3 +57,8 @@
 * [ ] 确定正确性
 
 # 2.Smoothing
+
+## Laplacian
+* uniform和cotangent
+* 如何快速构建uniform？
+* 显式/隐式的欧拉积分

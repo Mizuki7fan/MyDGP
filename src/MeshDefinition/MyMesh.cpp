@@ -1,6 +1,13 @@
 #include "MyMesh.h"
 #include <random>
 
+void MyMesh::ComputeLaplacian(int kind)
+{
+	if (kind==1)//uniform
+
+
+}
+
 void MyMesh::ComputeLocalAveragingRegion(int kind)
 {//类型:重心、Voronoi、混合
 	V_LocalAverageRegionArea.clear();
