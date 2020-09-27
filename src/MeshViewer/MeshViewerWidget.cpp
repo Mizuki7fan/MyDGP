@@ -151,6 +151,12 @@ void MeshViewerWidget::LoadRotation(void)
 	update();
 }
 
+void MeshViewerWidget::OpenDebug(void)
+{
+	Clear();
+	LoadMesh("D:/repository/GeometricProcessing/Housework/src/input/alien.obj");
+}
+
 void MeshViewerWidget::PrintMeshInfo(void)
 {
 	std::cout << "Mesh Info:\n";
@@ -170,6 +176,11 @@ void MeshViewerWidget::ComputeCurvature(int i, int j)
 		std::cout << value[i] << std::endl;
 	MapCurvature(value);//
 	std::cout << 123 << std::endl;
+}
+
+void MeshViewerWidget::MeshMakeNoise()
+{
+	DGPAlgorithm::MakeNoise(*mesh);
 }
 
 void MeshViewerWidget::DrawScene(void)

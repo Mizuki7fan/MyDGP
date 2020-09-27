@@ -1,4 +1,5 @@
 #include "MyMesh.h"
+#include <random>
 
 void MyMesh::ComputeLocalAveragingRegion(int kind)
 {//类型:重心、Voronoi、混合
@@ -138,5 +139,28 @@ void MyMesh::UpdateGaussianCurvature()
 	for (int i = 0; i < NVertices(); i++)
 	{
 		VCurvature[i]=	v_angledefect[i] / V_LocalAverageRegionArea[i];
+	}
+}
+
+void MyMesh::MakeNoise()
+{
+	double e_length = 0;
+	for (int i = 0; i < NEdges(); i++)
+	{
+		e_length += getEdgeLength(i);
+	}
+	e_length /= NEdges();
+	//平均边长
+	std::default_random_engine generator;
+	std::normal_distribution<double> d(e_length);
+	for (int i = 0; i < NVertices(); i++)
+	{
+//		double r = *d(generator);
+		double rx = d(generator);
+		double ry = d(generator);
+		double rz = d(generator);
+		Eigen::Vector3d n(rx, ry, rz);
+//		SetVerticeNewCoord(i,(getVertexCoord(i) + r * getVertexNormal(i)));
+		SetVerticeNewCoord(i, (getVertexCoord(i) +  0.5*n/n.norm() * e_length));
 	}
 }

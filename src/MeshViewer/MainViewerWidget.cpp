@@ -29,9 +29,10 @@ void MainViewerWidget::InitViewerWindow(void)
 void MainViewerWidget::CreateParamWidget(void)
 {
 	meshparamwidget = new MeshParamWidget();
+	connect(meshparamwidget->wControlPanel, SIGNAL(openDebug()), meshviewerwidget, SLOT(OpenDebug()));
 	connect(meshparamwidget->wGeneral, SIGNAL(PrintInfo()), meshviewerwidget, SLOT(PrintMeshInfo()));
 	connect(meshparamwidget->wChap1, SIGNAL(ComputeCurvatureSignal(int, int)), meshviewerwidget, SLOT(ComputeCurvature(int, int)));
-	//connect(meshparamwidget, SIGNAL(ComputeCurvatureSignal()), meshviewerwidget, SLOT(ComputeMeshCurvature()));
+	connect(meshparamwidget->wChap2, SIGNAL(MakeNoiseSignal()), meshviewerwidget, SLOT(MeshMakeNoise()));
 }
 
 void MainViewerWidget::CreateViewerDialog(void)

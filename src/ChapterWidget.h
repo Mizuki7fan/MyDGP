@@ -7,35 +7,36 @@ class MyWidget :public QWidget
 {
 	Q_OBJECT;
 public:
-	MyWidget(QWidget* _parent = 0);
-	~MyWidget();
+	MyWidget();
+
 protected:
 	QLabel* lName;
 	QPushButton* pbReturn;
 protected:
 signals:
 	void changeWidget(int i);
+	void openDebug();
 };
 
 class ControlPanel :public MyWidget
 {
 	Q_OBJECT;
 public:
-	ControlPanel(QWidget* _parent = 0);
-	~ControlPanel();
+	ControlPanel();
 
 private:
+	QPushButton* pbDebug;
 	QPushButton* pbGeneral;
 	QPushButton* pbChap1;
-
+	QPushButton* pbChap2;
 };
 
 class GeneralWidget :public MyWidget
 {
 	Q_OBJECT;
 public:
-	GeneralWidget(QWidget* _parent = 0);
-	~GeneralWidget();
+	GeneralWidget();
+
 private:
 signals:
 	void PrintInfo();
@@ -48,8 +49,8 @@ class DiscreteDifferentialGeometryWidget :public MyWidget
 {
 	Q_OBJECT;
 public:
-	DiscreteDifferentialGeometryWidget(QWidget* _parent = 0);
-	~DiscreteDifferentialGeometryWidget();
+	DiscreteDifferentialGeometryWidget();
+
 private:
 signals:
 	void ComputeCurvatureSignal(int,int);
@@ -58,4 +59,17 @@ private:
 	QComboBox* qbCurvatureKind;
 	QPushButton* pbComputeCurvature;
 
+};
+
+class Smoothing :public MyWidget
+{
+	Q_OBJECT;
+public:
+	Smoothing();
+
+private:
+signals:
+	void MakeNoiseSignal();
+private:
+	QPushButton* pbMakeNoise;
 };

@@ -100,9 +100,12 @@ public:
     virtual Eigen::Vector3d getVertexNormal(int i) const = 0;
     virtual Eigen::Vector3d getFaceNormal(int i) const = 0;
     virtual void getEdgeVertices(int e, int& v1, int& v2) const = 0;
+    virtual double getEdgeLength(int e) const = 0;
     virtual void getFaceVertices(int f, int& v1, int& v2, int& v3) const = 0;
     virtual void getFaceAngles(int f, double& angle1, double& angle2, double& angle3) const = 0;
     virtual bool isBoundary(int) const = 0;
+    virtual void SetVerticeNewCoord(int, Eigen::Vector3d) =0;
+    virtual Eigen::Vector3d getVertexCoord(int)  = 0;
 
 private:
     void ComputeTriangleArea(Point& p1, Point& p2, Point& p3);
@@ -113,7 +116,13 @@ public:
     void ComputeLocalAveragingRegion(int kind);//获取点的平均区域，暂时是获取面积
     void UpdateMeanCurvature();
     void UpdateGaussianCurvature();
+    void MakeNoise();
     std::vector<double> VCurvature;
     void getVCurvature(std::vector<double>& c) { c = VCurvature; };
     std::vector<double> V_LocalAverageRegionArea;
+
+    private:
+        Eigen::Matrix3d Vertices;//网格顶点
+        Eigen::MatrixXd Laplacian;//拉普拉斯矩阵
+
 };

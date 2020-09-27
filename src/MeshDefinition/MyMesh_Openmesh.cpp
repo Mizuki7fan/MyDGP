@@ -70,6 +70,11 @@ double Mesh::CalcFaceArea()
 	return area;
 }
 
+double Mesh::getEdgeLength(int i) const
+{
+	return mesh.calc_edge_length(mesh.edge_handle(i));
+}
+
 MyMesh::Point Mesh::getPoint(int i) const
 {
 	T::Point tp = mesh.point(mesh.vertex_handle(i));
@@ -130,4 +135,18 @@ void Mesh::getFaceAngles(int f, double& angle1, double& angle2, double& angle3) 
 bool Mesh::isBoundary(int i) const
 {
 	return mesh.is_boundary(mesh.edge_handle(i));
+}
+
+void Mesh::SetVerticeNewCoord(int i, Eigen::Vector3d p)
+{
+	T::VertexHandle vh = mesh.vertex_handle(i);
+	T::Point p1(p.x(),p.y(),p.z());
+	mesh.set_point(vh,p1);
+}
+
+Eigen::Vector3d Mesh::getVertexCoord(int i)
+{
+	T::VertexHandle vh= mesh.vertex_handle(i);
+	T::Point p = mesh.point(vh);
+	return Eigen::Vector3d(p.data()[0],p.data()[1],p.data()[2]);
 }

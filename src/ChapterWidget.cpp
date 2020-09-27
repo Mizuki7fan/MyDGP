@@ -1,27 +1,31 @@
 #include "ChapterWidget.h"
 
-ControlPanel::ControlPanel(QWidget* parent)
+ControlPanel::ControlPanel()
 {	
+	pbDebug = new QPushButton(QStringLiteral("打开测试网格"));
 	lName->setText(QStringLiteral("==  控制面板  =="));
 	pbGeneral = new QPushButton(QStringLiteral("通用"));
 	pbChap1 = new QPushButton(QStringLiteral("离散微分几何"));
+	pbChap2 = new QPushButton(QStringLiteral("Smoothing"));
 
 	QGridLayout* pLayout = new QGridLayout();
-	pLayout->addWidget(lName, 0, 0);
-	pLayout->addWidget(pbGeneral, 1, 0);
-	pLayout->addWidget(pbChap1, 2, 0);
+	pLayout->addWidget(pbDebug);
+	pLayout->addWidget(lName);
+	pLayout->addWidget(pbGeneral);
+	pLayout->addWidget(pbChap1);
+	pLayout->addWidget(pbChap2);
+
 	pLayout->setAlignment(Qt::AlignTop);
 	pLayout->setMargin(0);
 	this->setLayout(pLayout);
+	connect(pbDebug, &QPushButton::clicked, this, [=]() {this->openDebug(); });
 	connect(pbGeneral, &QPushButton::clicked, this, [=]() {this->changeWidget(1); });
 	connect(pbChap1, &QPushButton::clicked, this, [=]() {this->changeWidget(2); });
+	connect(pbChap2, &QPushButton::clicked, this, [=]() {this->changeWidget(3); });
+
 }
 
-ControlPanel::~ControlPanel()
-{
-}
-
-GeneralWidget::GeneralWidget(QWidget* parent)
+GeneralWidget::GeneralWidget()
 {
 	lName->setText(QStringLiteral("==  通用功能  =="));
 	pbPrintInfo = new QPushButton(QStringLiteral("打印网格信息"));
@@ -36,24 +40,19 @@ GeneralWidget::GeneralWidget(QWidget* parent)
 
 }
 
-GeneralWidget::~GeneralWidget()
-{
-}
-
-MyWidget::MyWidget(QWidget* parent)
-	: QWidget(parent)
+MyWidget::MyWidget()
 {
 	pbReturn = new QPushButton(QStringLiteral("返回"));
-	connect(pbReturn, &QPushButton::clicked, this, [=]() {this->changeWidget(0);});
+	connect(pbReturn, &QPushButton::clicked, this, [=]() {
+		printf("123");
+		this->changeWidget(0);}
+	);
 	lName = new QLabel("");
 	lName->setAlignment(Qt::AlignHCenter);
 }
 
-MyWidget::~MyWidget()
-{
-}
 
-DiscreteDifferentialGeometryWidget::DiscreteDifferentialGeometryWidget(QWidget* _parent)
+DiscreteDifferentialGeometryWidget::DiscreteDifferentialGeometryWidget()
 {
 	lName->setText(QStringLiteral("==  离散微分几何  =="));
 	QLabel* lLocalAverageRegionKind=new QLabel(QStringLiteral("局部平均区域类型:"));
@@ -88,6 +87,18 @@ DiscreteDifferentialGeometryWidget::DiscreteDifferentialGeometryWidget(QWidget* 
 		});
 }
 
-DiscreteDifferentialGeometryWidget::~DiscreteDifferentialGeometryWidget()
+Smoothing::Smoothing()
 {
+	lName->setText(QStringLiteral("==  SMOOTHING  =="));
+	pbMakeNoise = new QPushButton(QStringLiteral("制造噪声"));
+	QVBoxLayout* layout = new QVBoxLayout();
+	layout->addWidget(lName);
+	layout->addWidget(pbReturn);
+	layout->addWidget(pbMakeNoise);
+	layout->setAlignment(Qt::AlignTop);
+	layout->setMargin(0);
+	this->setLayout(layout);
+
+	connect(pbMakeNoise, SIGNAL(clicked()), this, SIGNAL(MakeNoiseSignal()));
+
 }

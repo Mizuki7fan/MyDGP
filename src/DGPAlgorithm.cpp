@@ -33,3 +33,11 @@ void DGPAlgorithm::ComputeGaussianCurvature( MyMesh& mesh, std::vector<double>& 
 	mesh.UpdateGaussianCurvature();
 	mesh.getVCurvature(curvature);
 }
+
+void DGPAlgorithm::MakeNoise(MyMesh& mesh)
+{
+	mesh.UpdateNormals();
+	mesh.MakeNoise();
+	//先算平均边长，然后算点的法向，在令点沿着法向随机平移
+	
+}
