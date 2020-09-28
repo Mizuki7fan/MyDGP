@@ -26,9 +26,12 @@ class Mesh:public MyMesh
 public:
 	Mesh();
     bool Load(std::string);
+	void LoadVertex();
 	bool Write(std::string);
 	void Clear();
 	void UpdateNormals();
+	void RequestVerticeNormal(void);
+	void RequestFaceNormal(void);
 	bool VerticesEmpty();
 	int NVertices() const;
 	int NEdges() const;
@@ -43,12 +46,14 @@ public:
 	void getFaceVertices(int f, int& v1, int& v2, int& v3) const;
 	void getFaceAngles(int f, double& angle1, double& angle2, double& angle3) const;
 	bool isBoundary(int) const;
+	bool isBoundaryVertex(int) const;
 	void SetVerticeNewCoord(int, Eigen::Vector3d);
 	Eigen::Vector3d getVertexCoord(int);
+
+	void ComputeLAR(int kind);
 	void ComputeLaplacian(int);
 
 	T mesh;
 private:
-
-
+	T::Point toPoint(Eigen::Vector3d v) { return T::Point(v.x(), v.y(), v.z()); }
 };

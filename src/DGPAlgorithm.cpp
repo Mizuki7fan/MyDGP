@@ -2,7 +2,7 @@
 
 void DGPAlgorithm::ComputeCurvature(int localaverageregionKind, int curvatureKind, MyMesh& mesh, std::vector<double>& curvature)
 {
-	mesh.ComputeLocalAveragingRegion(localaverageregionKind);
+	mesh.ComputeLAR(localaverageregionKind);
 	switch (curvatureKind)
 	{
 	case 0:
@@ -38,6 +38,15 @@ void DGPAlgorithm::MakeNoise(MyMesh& mesh)
 {
 	mesh.UpdateNormals();
 	mesh.MakeNoise();
+
 	//先算平均边长，然后算点的法向，在令点沿着法向随机平移
 	
+}
+
+void DGPAlgorithm::DoFairing(MyMesh& mesh, int power)
+{
+	mesh.ComputeLAR(0);
+	mesh.LoadVertex();
+	mesh.Fairing(power);
+
 }

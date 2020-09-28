@@ -91,14 +91,41 @@ Smoothing::Smoothing()
 {
 	lName->setText(QStringLiteral("==  SMOOTHING  =="));
 	pbMakeNoise = new QPushButton(QStringLiteral("制造噪声"));
+	QLabel* lFairingPower=new QLabel(QStringLiteral("Fairing的幂次:"));
+	leFairingPower = new QLineEdit();
+	leFairingPower->setText("1");
+	pbFairing = new QPushButton(QStringLiteral("做Fairing"));
+	QLabel* lLaplacianKind = new QLabel(QStringLiteral("Laplacian类型:"));
+	QStringList LaplacianKind;
+	LaplacianKind << "Uniform" << "Cotangent";
+	qbLaplacianKind = new QComboBox();
+	qbLaplacianKind->addItems(LaplacianKind);
+	QFrame* line = new QFrame(), *line2 = new QFrame();
+	line->setFrameShape(QFrame::HLine);
+	line->setFrameShadow(QFrame::Sunken);
+	line2->setFrameShape(QFrame::HLine);
+	line2->setFrameShadow(QFrame::Sunken);
+//	lSeparator->
+
 	QVBoxLayout* layout = new QVBoxLayout();
 	layout->addWidget(lName);
 	layout->addWidget(pbReturn);
 	layout->addWidget(pbMakeNoise);
+	layout->addWidget(line);
+	layout->addWidget(lFairingPower);
+	layout->addWidget(leFairingPower);
+	layout->addWidget(pbFairing);
+	layout->addWidget(line2);
+	layout->addWidget(lLaplacianKind);
+
 	layout->setAlignment(Qt::AlignTop);
 	layout->setMargin(0);
 	this->setLayout(layout);
 
 	connect(pbMakeNoise, SIGNAL(clicked()), this, SIGNAL(MakeNoiseSignal()));
+	connect(pbFairing, &QPushButton::clicked, this, [=]() {
+		int fairingpower = leFairingPower->text().toInt();
+		this->DoFairingSignal(fairingpower);
+		});
 
 }

@@ -16,6 +16,5 @@
         <file>Images/curvature.png</file>
         <file>Texture/texture.png</file>
         <file>Texture/colorbar.png</file>
-        <file>input/alien.obj</file>
     </qresource>
 </RCC>

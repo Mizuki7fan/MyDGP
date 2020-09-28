@@ -6,6 +6,7 @@
 #include <QDesktopWidget>
 #include "QGLViewerWidget.h"
 #include <QOpenGLTexture>
+#include <GL/freeglut.h>
 
 
 const double QGLViewerWidget::trackballradius = 0.6;
@@ -19,13 +20,13 @@ QGLViewerWidget::QGLViewerWidget(QWidget* _parent)
 	windowtop(1),
 	windowbottom(-1),
 	mousemode(Qt::NoButton),
-	center(0),
+	center(0,0,0),
 	radius(0),
 	projectionmatrix(16, 0.0),
 	modelviewmatrix(16, 0.0),
 	copymodelviewmatrix(16, 0.0),
 	lastpoint2(0, 0),
-	lastpoint3(0),
+	lastpoint3(0,0,0),
 	lastpointok(false)
 {
 	Init();

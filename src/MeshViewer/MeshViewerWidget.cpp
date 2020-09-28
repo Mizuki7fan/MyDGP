@@ -5,10 +5,11 @@
 #ifdef MESHTOOL_USE_OPENMESH
 #include "../MeshDefinition/MyMesh_Openmesh.h"
 #endif
-#include <QOpenGLTexture>
-#include <QOpenGLFrameBufferObject>
+//#include <QOpenGLTexture>
+//#include <QOpenGLFrameBufferObject>
 #include "../DGPAlgorithm.h"
 #include <map>
+#include <QMessageBox>
 
 MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	: QGLViewerWidget(parent),
@@ -154,7 +155,7 @@ void MeshViewerWidget::LoadRotation(void)
 void MeshViewerWidget::OpenDebug(void)
 {
 	Clear();
-	LoadMesh("D:/repository/GeometricProcessing/Housework/src/input/alien.obj");
+	LoadMesh("D:/repository/GeometricProcessing/Housework/src/example/alien_remesh.obj");
 }
 
 void MeshViewerWidget::PrintMeshInfo(void)
@@ -181,6 +182,18 @@ void MeshViewerWidget::ComputeCurvature(int i, int j)
 void MeshViewerWidget::MeshMakeNoise()
 {
 	DGPAlgorithm::MakeNoise(*mesh);
+}
+
+void MeshViewerWidget::DoFairing(int power)
+{
+	std::cout << power << std::endl;
+	if (power == 0)
+	{
+		QMessageBox::critical(NULL, windowTitle(), QStringLiteral("´íÎóµÄÃÝÖµ"));
+		return;
+	}
+	DGPAlgorithm::DoFairing(*mesh, power);
+
 }
 
 void MeshViewerWidget::DrawScene(void)

@@ -70,6 +70,11 @@ public:
 private:
 signals:
 	void MakeNoiseSignal();
+	void DoFairingSignal(int);
 private:
 	QPushButton* pbMakeNoise;
+	QPushButton* pbFairing;//做Fairing
+	QLineEdit* leFairingPower;//Fairing的幂
+	QComboBox* qbLaplacianKind;//Laplacian的种类
+
 };

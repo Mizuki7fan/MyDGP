@@ -30,6 +30,7 @@ public slots:
 	void PrintMeshInfo(void);
 	void ComputeCurvature(int, int);
 	void MeshMakeNoise();
+	void DoFairing(int);
 
 protected:
 	virtual void DrawScene(void) override;

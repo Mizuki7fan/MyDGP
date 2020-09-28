@@ -33,6 +33,7 @@ void MainViewerWidget::CreateParamWidget(void)
 	connect(meshparamwidget->wGeneral, SIGNAL(PrintInfo()), meshviewerwidget, SLOT(PrintMeshInfo()));
 	connect(meshparamwidget->wChap1, SIGNAL(ComputeCurvatureSignal(int, int)), meshviewerwidget, SLOT(ComputeCurvature(int, int)));
 	connect(meshparamwidget->wChap2, SIGNAL(MakeNoiseSignal()), meshviewerwidget, SLOT(MeshMakeNoise()));
+	connect(meshparamwidget->wChap2, SIGNAL(DoFairingSignal(int)), meshviewerwidget, SLOT(DoFairing(int)));
 }
 
 void MainViewerWidget::CreateViewerDialog(void)

@@ -54,6 +54,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Windows")
         if (MESHTOOL_USE_OPENMESH)
         link_directories("D:/LIBRARY/OpenMesh/build_vs/Build/lib")
         SET(MESHTOOL_LIBRARY OpenMeshCore OpenMeshTools)
+        SET(MESHTOOL_DLIBRARY OpenMeshCored OpenMeshToolsd)
         endif()
         link_directories("D:/LIBRARY/freeglut/build/lib/Release")
         link_directories("D:/LIBRARY/ANN/build")
@@ -83,11 +84,13 @@ COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>"
 endif()
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Core Qt5::Gui Qt5::OpenGL
-    ${MESHTOOL_LIBRARY}
+    optimized ${MESHTOOL_LIBRARY}
+    debug ${MESHTOOL_DLIBRARY}
     optimized opengl32
     optimized glu32
     optimized ANN
     optimized freeglut
+    debug freeglutd
     )
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     #target_link_libraries(${PROJECT_NAME}  OpenMeshTools OpenMeshCore)

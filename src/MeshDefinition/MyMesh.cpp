@@ -1,17 +1,11 @@
 #include "MyMesh.h"
 #include <random>
+#include <fstream>
 
-void MyMesh::ComputeLaplacian(int kind)
-{
-	if (kind==1)//uniform
-
-
-}
-
-void MyMesh::ComputeLocalAveragingRegion(int kind)
+void MyMesh::ComputeLAR(int kind)
 {//类型:重心、Voronoi、混合
-	V_LocalAverageRegionArea.clear();
-	V_LocalAverageRegionArea.resize(NFaces());
+	LAR.setZero();
+	LAR.resize(NFaces());
 	//遍历每一个面，获取面的"中心"
 	for (int i = 0; i < NFaces(); i++)
 	{
@@ -55,9 +49,9 @@ void MyMesh::ComputeLocalAveragingRegion(int kind)
 			else
 				center3 = (p2 + p1).toEigen3d() / 2;
 		}
-		V_LocalAverageRegionArea[v1] += ComputeArea(p1.toEigen3d(), m12.toEigen3d(), center1) + ComputeArea(p1.toEigen3d(), m13.toEigen3d(), center1);
-		V_LocalAverageRegionArea[v2] += ComputeArea(p2.toEigen3d(), m12.toEigen3d(), center2) + ComputeArea(p2.toEigen3d(), m23.toEigen3d(), center2);
-		V_LocalAverageRegionArea[v3] += ComputeArea(p3.toEigen3d(), m13.toEigen3d(), center3) + ComputeArea(p3.toEigen3d(), m23.toEigen3d(), center3);
+		LAR[v1] += ComputeArea(p1.toEigen3d(), m12.toEigen3d(), center1) + ComputeArea(p1.toEigen3d(), m13.toEigen3d(), center1);
+		LAR[v2] += ComputeArea(p2.toEigen3d(), m12.toEigen3d(), center2) + ComputeArea(p2.toEigen3d(), m23.toEigen3d(), center2);
+		LAR[v3] += ComputeArea(p3.toEigen3d(), m13.toEigen3d(), center3) + ComputeArea(p3.toEigen3d(), m23.toEigen3d(), center3);
 	}
 }
 
@@ -84,53 +78,40 @@ Eigen::Vector3d MyMesh::ComputeTriangleCenter(Eigen::Vector3d f_normal, Eigen::V
 
 void MyMesh::UpdateMeanCurvature()
 {
-	VCurvature.clear();
-	VCurvature.resize(NVertices());
-	std::vector<double> x_curvature(NVertices(), 0);
-	std::vector<double> y_curvature(NVertices(), 0);
-	std::vector<double> z_curvature(NVertices(), 0);
-	for (int i = 0; i < NFaces(); i++)
+	ComputeLaplacian(0);//算cotangent的拉普拉斯；
+	int nv = NVertices();
+	Vertices.resize(nv, 3);
+	Vertices.setZero();
+	for (int i=0;i<nv;i++)
 	{
-		int v1, v2, v3;
-		double angle1, angle2, angle3;
-		getFaceVertices(i, v1, v2, v3);
-		getFaceAngles(i, angle1, angle2, angle3);
-		Point p1 = getPoint(v1), p2 = getPoint(v2), p3 = getPoint(v3);
-		//v1v2边
-		x_curvature[v1] += (atan(angle3)) / V_LocalAverageRegionArea[v1]*(p2-p1).v[0];
-		y_curvature[v1]+= (atan(angle3)) / V_LocalAverageRegionArea[v1] * (p2 - p1).v[1];
-		z_curvature[v1]+= (atan(angle3)) / V_LocalAverageRegionArea[v1] * (p2 - p1).v[2];
-		//v2v1边
-		x_curvature[v2] += (atan(angle3)) / V_LocalAverageRegionArea[v2] * (p1 - p2).v[0];
-		y_curvature[v2] += (atan(angle3)) / V_LocalAverageRegionArea[v2] * (p1 - p2).v[1];
-		z_curvature[v2] += (atan(angle3)) / V_LocalAverageRegionArea[v2] * (p1 - p2).v[2];
-		//v1v3边
-		x_curvature[v1] += (atan(angle2)) / V_LocalAverageRegionArea[v1] * (p3 - p1).v[0];
-		y_curvature[v1] += (atan(angle2)) / V_LocalAverageRegionArea[v1] * (p3 - p1).v[1];
-		z_curvature[v1] += (atan(angle2)) / V_LocalAverageRegionArea[v1] * (p3 - p1).v[2];
-		//v3v1边		
-		x_curvature[v3] += (atan(angle2)) / V_LocalAverageRegionArea[v3] * (p1 - p3).v[0];
-		y_curvature[v3] += (atan(angle2)) / V_LocalAverageRegionArea[v3] * (p1 - p3).v[1];
-		z_curvature[v3] += (atan(angle2)) / V_LocalAverageRegionArea[v3] * (p1 - p3).v[2];
-		//v2v3边
-		x_curvature[v2] += (atan(angle1)) / V_LocalAverageRegionArea[v2] * (p3 - p2).v[0];
-		y_curvature[v2] += (atan(angle1)) / V_LocalAverageRegionArea[v2] * (p3 - p2).v[1];
-		z_curvature[v2] += (atan(angle1)) / V_LocalAverageRegionArea[v2] * (p3 - p2).v[2];
-		//v3v2边
-		x_curvature[v3] += (atan(angle1)) / V_LocalAverageRegionArea[v3] * (p2 - p3).v[0];
-		y_curvature[v3] += (atan(angle1)) / V_LocalAverageRegionArea[v3] * (p2 - p3).v[1];
-		z_curvature[v3] += (atan(angle1)) / V_LocalAverageRegionArea[v3] * (p2 - p3).v[2];
+		Point p = getPoint(i);
+		Vertices(i, 0) = p[0];
+		Vertices(i, 1) = p[1];
+		Vertices(i, 2) = p[2];
 	}
+	Eigen::MatrixXd left	= Laplacian * Vertices;
+
+	UpdateNormals();
+	VertexCurvature.resize(NVertices());
+	VertexCurvature.setZero();
+
 	for (int i = 0; i < NVertices(); i++)
 	{
-		VCurvature[i] =0.5* sqrt(x_curvature[i] * x_curvature[i] + y_curvature[i] * y_curvature[i] + z_curvature[i] * z_curvature[i]);
+		Eigen::Vector3d n = getVertexNormal(i);
+		Eigen::Vector3d v_row(left(i, 0), left(i, 1), left(i, 2));
+		if (n.dot(v_row) > 0)
+			VertexCurvature[i] = 0.5*v_row.norm();
+		else
+			VertexCurvature(i) = -0.5* v_row.norm();
 	}
+	std::ofstream test("test.txt");
+	test << VertexCurvature;
+	test.close();
 }
 
 void MyMesh::UpdateGaussianCurvature()
 {
-	VCurvature.clear();
-	VCurvature.resize(NVertices());
+	VertexCurvature.resize(NVertices());
 
 	std::vector<double> v_angledefect(NVertices(),2*M_PI);
 	for (int i = 0; i < NFaces(); i++)
@@ -145,7 +126,7 @@ void MyMesh::UpdateGaussianCurvature()
 	}
 	for (int i = 0; i < NVertices(); i++)
 	{
-		VCurvature[i]=	v_angledefect[i] / V_LocalAverageRegionArea[i];
+		VertexCurvature[i]=	v_angledefect[i] / LAR[i];
 	}
 }
 
@@ -169,5 +150,52 @@ void MyMesh::MakeNoise()
 		Eigen::Vector3d n(rx, ry, rz);
 //		SetVerticeNewCoord(i,(getVertexCoord(i) + r * getVertexNormal(i)));
 		SetVerticeNewCoord(i, (getVertexCoord(i) +  0.5*n/n.norm() * e_length));
+	}
+}
+
+void MyMesh::Fairing(int power)
+{
+	//算拉普拉斯矩阵
+	ComputeLaplacian(0);
+	//寻找边界上的点
+	Eigen::MatrixXd L = Laplacian;
+	Eigen::MatrixXd b(NVertices(), 3);
+	b.setZero();
+	std::ofstream res3("result.txt");
+	res3 << L << std::endl;
+	res3.close();
+
+	std::ofstream res2("result1.txt");
+	res2 << L.inverse() << std::endl;
+	res2.close();
+	for (int i = 0; i < NVertices(); i++)
+	{
+		if (isBoundaryVertex(i))
+		{
+			for (int j = 0; j < NVertices(); j++)
+			{
+				Laplacian(i, j) = 0;
+			}
+			Laplacian(i, i) = 1;
+			b(i, 0) = Vertices(i, 0);
+			b(i, 1) = Vertices(i, 1);
+			b(i, 2) = Vertices(i, 2);
+		}
+	}
+	Eigen::MatrixXd res = L.inverse() * b;
+	for (int i = 0; i < NVertices(); i++)
+	{
+		Eigen::Vector3d value(res(i, 0), res(i, 1), res(i, 2));
+		SetVerticeNewCoord(i, value);
+	}
+	std::cout << 123 << std::endl;
+}
+
+void MyMesh::getVCurvature(std::vector<double>& c)
+{
+	c.resize(NVertices());
+	for (int i = 0; i < VertexCurvature.size(); i++)
+	{
+		c[i] = VertexCurvature[i];
 	}
 }
