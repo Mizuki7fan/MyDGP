@@ -2,7 +2,9 @@
 #include <string>
 #include <vector>
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <iostream>
+#include "../LinSysSolver/LinSysSolver.hpp"
 
 class MyMesh
 {
@@ -77,6 +79,7 @@ public:
 		}
 	};
 
+	MyMesh();
 private:
 
 public:
@@ -103,9 +106,11 @@ public:
 	virtual bool isBoundaryVertex(int) const = 0;
 	virtual void SetVerticeNewCoord(int, Eigen::Vector3d) = 0;
 	virtual Eigen::Vector3d getVertexCoord(int) = 0;
+	virtual double ComputeMeshVolume() = 0;
 
 	virtual void ComputeLaplacian(int) = 0;//构建Laplacian矩阵
 	virtual void LoadVertex() = 0;
+	virtual void SetVertexNewCoord() = 0;
 	virtual void ComputeLAR(int) = 0;
 protected://辅助子类的功能
 	double ComputeArea(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3);
@@ -116,15 +121,18 @@ public://主要在父类cpp中实现的内容
 	void UpdateGaussianCurvature();
 	void MakeNoise();
 	void Fairing(int);
-	//std::vector<double> VCurvature;
+	void Smoothing(int, int);
+
 	void getVCurvature(std::vector<double>& c);
 
 protected:
 	Eigen::VectorXd LAR; //局部平均区域的面积
 	Eigen::MatrixXd Vertices;//网格顶点Eigen::Matrix3d FaceNormal;//面法向，唯一
-	Eigen::Matrix3d VertexNormal;//顶点法向，多种加权方式
-	Eigen::Matrix3d FaceNormal;
+	Eigen::MatrixXd VertexNormal;//顶点法向，多种加权方式
+	Eigen::MatrixXd FaceNormal;
 	Eigen::VectorXd VertexCurvature;//顶点的曲率
-	Eigen::MatrixXd Laplacian;//拉普拉斯矩阵，两种uniform或者cotangent
 
+	Eigen::SparseMatrix<double> Laplacian;
+	double volume;
+	LinSysSolver* solver;
 };

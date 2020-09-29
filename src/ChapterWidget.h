@@ -40,9 +40,11 @@ public:
 private:
 signals:
 	void PrintInfo();
+	void CalcVolumeSignal();//计算体积
 
 private:
 	QPushButton* pbPrintInfo;
+	QPushButton* pbCalcVolume;
 };
 
 class DiscreteDifferentialGeometryWidget :public MyWidget
@@ -71,10 +73,14 @@ private:
 signals:
 	void MakeNoiseSignal();
 	void DoFairingSignal(int);
+	void DoSmoothingSignal(int,int);
 private:
 	QPushButton* pbMakeNoise;
 	QPushButton* pbFairing;//做Fairing
+	QPushButton* pbSmoothing;
 	QLineEdit* leFairingPower;//Fairing的幂
 	QComboBox* qbLaplacianKind;//Laplacian的种类
+	QComboBox* qbIntegrationKind;//欧拉积分的类型
+	QComboBox* qbSmoothObject;
 
 };

@@ -19,6 +19,11 @@ option(MESHTOOL_USE_CGAL "Meshtool Use Cgal" OFF)
 option(MESHTOOL_USE_Libigl "Meshtool Use Libigl" OFF)
 option(MESHTOOL_USE_Diy "Meshtool Use Diy" OFF)
 
+#指定选用的Solver
+option(LINSYSSOLVER_USE_PARDISO "Use Pardiso" OFF)
+option(LINSYSSOLVER_USE_MKL "Use MKL Pardiso" OFF)
+option(LINSYSSOLVER_USE_EIGEN "Use EIGEN" ON)
+
 #QT相关设置
 set(CMAKE_INCLUDE_CURRENT_DIR ON) #设置工程包含当前目录，非必须
 set(CMAKE_AUTOMOC ON) #设置自动生成moc文件，一定要设置
@@ -41,11 +46,17 @@ qt5_add_resources(QRC_FILES ${QRC_SOURCE_FILES})
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
     message(STATUS "the OS is windows")
     include_directories("D:/LIBRARY/Eigen")
-    if (MESHTOOL_USE_OPENMESH)
+    if (MESHTOOL_USE_OPENMESH)#指定使用的网格库，使用OpenMesh
         include_directories("D:/LIBRARY/OpenMesh/src")
         SET(MESHTOOL_CPP MyMesh_Openmesh.cpp)
         add_definitions(-DMESHTOOL_USE_OPENMESH)
     endif()
+    if (LINSYSSOLVER_USE_EIGEN)#指定使用的Solver，使用Eigen
+        SET(SOLVER_FILE EigenLinSolver.cpp)
+        SET(SOLVER_LIBRARY)
+        add_definitions(-DLINSYSSOLVER_USE_EIGEN)
+    endif()
+
     include_directories("D:/LIBRARY/freeglut/include")
     include_directories("D:/LIBRARY/ANN")
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -72,6 +83,7 @@ file (GLOB SRCFILES
     src/MeshViewer/*.cpp
     src/MeshDefinition/MyMesh.cpp
     src/MeshDefinition/${MESHTOOL_CPP}
+    src/LinSysSolver/${SOLVER_FILE}
 )
 
 add_executable(${PROJECT_NAME} ${SRCFILES} ${QRC_FILES})
@@ -84,6 +96,7 @@ COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>"
 endif()
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Core Qt5::Gui Qt5::OpenGL
+    ${SOLVER_LIBRARY}
     optimized ${MESHTOOL_LIBRARY}
     debug ${MESHTOOL_DLIBRARY}
     optimized opengl32

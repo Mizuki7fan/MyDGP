@@ -27,6 +27,7 @@ public:
 	Mesh();
     bool Load(std::string);
 	void LoadVertex();
+	void SetVertexNewCoord();
 	bool Write(std::string);
 	void Clear();
 	void UpdateNormals();
@@ -49,6 +50,7 @@ public:
 	bool isBoundaryVertex(int) const;
 	void SetVerticeNewCoord(int, Eigen::Vector3d);
 	Eigen::Vector3d getVertexCoord(int);
+	double ComputeMeshVolume();
 
 	void ComputeLAR(int kind);
 	void ComputeLaplacian(int);

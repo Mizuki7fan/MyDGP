@@ -169,14 +169,16 @@ void MeshViewerWidget::PrintMeshInfo(void)
 	std::cout << "  Diag length of BBox: " << (ptMax - ptMin).norm() << std::endl;
 }
 
+void MeshViewerWidget::CalcMeshVolume(void)
+{
+	mesh->ComputeMeshVolume();
+}
+
 void MeshViewerWidget::ComputeCurvature(int i, int j)
 {
 	std::vector<double> value;
 	DGPAlgorithm::ComputeCurvature(i,j,*mesh, value);
-	for (int i = 0; i < 100; i++)
-		std::cout << value[i] << std::endl;
-	MapCurvature(value);//
-	std::cout << 123 << std::endl;
+	MapCurvature(value);
 }
 
 void MeshViewerWidget::MeshMakeNoise()
@@ -193,7 +195,12 @@ void MeshViewerWidget::DoFairing(int power)
 		return;
 	}
 	DGPAlgorithm::DoFairing(*mesh, power);
+}
 
+void MeshViewerWidget::DoSmoothing(int laplacekind,int integrationkind)
+{
+	DGPAlgorithm::DoSmoothing(*mesh,laplacekind,integrationkind);
+//	UpdateMesh();
 }
 
 void MeshViewerWidget::DrawScene(void)
@@ -425,7 +432,7 @@ void MeshViewerWidget::DrawBoundary(void) const
 	float linewidth;
 	glGetFloatv(GL_LINE_WIDTH, &linewidth);
 	glLineWidth(2.0f);
-	glColor3d(0.1, 0.1, 0.1);
+	glColor3d(0, 0, 1);
 	glBegin(GL_LINES);
 	for (int i=0;i<mesh->NEdges();i++)
 	{
@@ -470,5 +477,21 @@ void MeshViewerWidget::MapCurvature(const std::vector<double>& values)
 	{
 		curvature_v[curvature[i].vid] = double(i) / values.size();
 	}
-
+	/*
+	double maxV, minV;
+	double sum=std::accumulate(values.begin(), values.end(),0.0);
+	double mean = sum / values.size();
+	double accum = 0.0;
+	std::for_each(std::begin(values), std::end(values), [&](const double d)
+		{
+			accum += (d - mean) * (d - mean);
+		});
+	//double stdev = sqrt(accum / values.size() - 1);
+	double stdev = 0.01;
+	maxV = mean + stdev; minV = mean - stdev;
+	for (int i = 0; i < values.size(); i++)
+	{
+		curvature_v[i] = (values[i] - minV) / (maxV - minV);
+	}
+	std::cout << 123 << std::endl;*/
 }

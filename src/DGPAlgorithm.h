@@ -10,6 +10,7 @@ public:
 	static void ComputeGaussianCurvature( MyMesh& mesh, std::vector<double>& curvature);
 	static void MakeNoise(MyMesh& mesh);
 	static void DoFairing(MyMesh& mesh, int power);
+	static void DoSmoothing(MyMesh& mesh, int laplacekind,int integrationkind);
 
 private:
 //	void ComputeLocalAveragingRegion()

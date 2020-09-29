@@ -28,9 +28,11 @@ signals:
 public slots:
 	void OpenDebug(void);
 	void PrintMeshInfo(void);
+	void CalcMeshVolume(void);
 	void ComputeCurvature(int, int);
 	void MeshMakeNoise();
 	void DoFairing(int);
+	void DoSmoothing(int,int);
 
 protected:
 	virtual void DrawScene(void) override;

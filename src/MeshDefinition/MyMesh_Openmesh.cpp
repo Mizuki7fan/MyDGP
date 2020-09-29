@@ -17,14 +17,22 @@ bool Mesh::Load(std::string s)
 void Mesh::LoadVertex()
 {
 	Vertices.resize(mesh.n_vertices(),3);
-	Vertices.setZero();
 	for (auto a : mesh.vertices())
 	{
-//		Vertices[a.idx()] = mesh.point(a);
 		T::Point p = mesh.point(a);
 		Vertices(a.idx(),0) = p.data()[0];
 		Vertices(a.idx(), 1) = p.data()[1];
 		Vertices(a.idx(), 2) = p.data()[2];
+	}
+}
+
+void Mesh::SetVertexNewCoord()
+{
+	for (auto vh : mesh.vertices())
+	{
+		int idx = vh.idx();
+		T::Point p1(Vertices(idx, 0), Vertices(idx, 1), Vertices(idx, 2));
+		mesh.set_point(vh, p1);
 	}
 }
 
@@ -196,6 +204,32 @@ Eigen::Vector3d Mesh::getVertexCoord(int i)
 	return Eigen::Vector3d(p.data()[0],p.data()[1],p.data()[2]);
 }
 
+double Mesh::ComputeMeshVolume()
+{
+	//先做定向，然后算原点到面的投影的模长
+	mesh.update_face_normals();
+	mesh.request_face_normals();
+	double vol = 0;
+	for (auto fh : mesh.faces())
+	{
+		std::vector<T::Point> p;
+		//求底面面积
+		for (auto fi : mesh.fv_range(fh))
+			p.push_back(mesh.point(fi));
+		OpenMesh::Vec3d e01 = p[1] - p[0];
+		OpenMesh::Vec3d e02 = p[2] - p[0];
+		double area = 0.5 * (e01 % e02).norm();
+		//求高
+		OpenMesh::Vec3d n = mesh.normal(fh);
+		OpenMesh::Vec3d eh = p[0];
+		double height =(n | eh);
+		vol += area * height / 3;
+	}
+	this->volume = vol;
+	std::cout << "网格体积为: "<<vol << std::endl;
+	return vol;
+}
+
 void Mesh::ComputeLAR(int kind)
 {
 	int nv = mesh.n_vertices();
@@ -262,22 +296,22 @@ void Mesh::ComputeLAR(int kind)
 void Mesh::ComputeLaplacian(int kind)
 {
 	//使用Openmesh的函数功能来填装Laplacian
+	std::vector<Eigen::Triplet<double>> L;
 	int nv = mesh.n_vertices();
 	Laplacian.resize(nv, nv);
-	Laplacian.setZero();//这里应当改成稀疏矩阵
+
 	if (kind == 0)
 	{
-		//如何快速构建uniform的Laplacian
 		for (T::VertexHandle vh : mesh.vertices())
 		{
 			int idx = vh.idx();
-			Laplacian(idx, idx) = -1;
 			int n_range = 0;
 			for (auto vv : mesh.vv_range(vh))
 				n_range++;
+			L.push_back(Eigen::Triplet<double>(idx, idx, -1));
 			for (auto vv : mesh.vv_range(vh))
 			{
-				Laplacian(idx, vv.idx()) = 1.0 / n_range;
+				L.push_back(Eigen::Triplet<double>(idx, vv.idx(),1.0/n_range));
 			}
 		}
 	}
@@ -286,11 +320,11 @@ void Mesh::ComputeLaplacian(int kind)
 		if (LAR.rows() == 0)
 		{
 			std::cerr << "尚未求取顶点平均区域" << std::endl;
-			
 			return;
 		}
 		for (T::VertexHandle vh : mesh.vertices())
-			Laplacian(vh.idx(), vh.idx()) = -1 / (2 * LAR(vh.idx()));
+			//Laplacian(vh.idx(), vh.idx()) = -1 / (2 * LAR(vh.idx()));
+			L.push_back(Eigen::Triplet<double>(vh.idx(), vh.idx(), -1/ (2 * LAR(vh.idx()))));
 		for (T::FaceHandle fh : mesh.faces())
 		{
 			int idx = fh.idx();
@@ -308,20 +342,31 @@ void Mesh::ComputeLaplacian(int kind)
 			double angle1 = acos(e12 | e13);
 			double angle2 = acos(-e12 | e23);
 			double angle3 = acos(e13 | e23);
-			Laplacian(fv[0], fv[1]) +=1/tan (angle3) / (2 * LAR[fv[0]]);
-			Laplacian(fv[0], fv[0]) -= 1/tan(angle3) / (2 * LAR[fv[0]]);
-			Laplacian(fv[1], fv[0]) += 1/tan(angle3) / (2 * LAR[fv[1]]);
-			Laplacian(fv[1], fv[1]) -= 1/tan(angle3) / (2 * LAR[fv[1]]);
-			
-			Laplacian(fv[0], fv[2]) += 1/tan(angle2) / (2 * LAR[fv[0]]);
-			Laplacian(fv[0], fv[0]) -= 1/tan(angle2) / (2 * LAR[fv[0]]);
-			Laplacian(fv[2], fv[0]) += 1/tan(angle2) / (2 * LAR[fv[2]]);
-			Laplacian(fv[2], fv[2]) -= 1/tan(angle2) / (2 * LAR[fv[2]]);
+//			Laplacian(fv[0], fv[1]) +=1/tan (angle3) / (2 * LAR[fv[0]]);
+//			Laplacian(fv[0], fv[0]) -= 1/tan(angle3) / (2 * LAR[fv[0]]);
+//			Laplacian(fv[1], fv[0]) += 1/tan(angle3) / (2 * LAR[fv[1]]);
+	//		Laplacian(fv[1], fv[1]) -= 1/tan(angle3) / (2 * LAR[fv[1]]);
+			L.push_back(Eigen::Triplet<double>(fv[0], fv[1], 1 / tan(angle3) / (2 * LAR[fv[0]])));
+			L.push_back(Eigen::Triplet<double>(fv[0], fv[0], -1 / tan(angle3) / (2 * LAR[fv[0]])));
+			L.push_back(Eigen::Triplet<double>(fv[1], fv[0], 1 / tan(angle3) / (2 * LAR[fv[1]])));
+			L.push_back(Eigen::Triplet<double>(fv[1], fv[1], -1 / tan(angle3) / (2 * LAR[fv[1]])));
 
-			Laplacian(fv[1], fv[2]) += 1/tan(angle1) / (2 * LAR[fv[1]]);
-			Laplacian(fv[1], fv[1]) -= 1/tan(angle1) / (2 * LAR[fv[1]]);
-			Laplacian(fv[2], fv[1]) += 1/tan(angle1) / (2 * LAR[fv[2]]);
-			Laplacian(fv[2], fv[2]) -= 1/tan(angle1) / (2 * LAR[fv[2]]);
+		//	Laplacian(fv[0], fv[2]) += 1/tan(angle2) / (2 * LAR[fv[0]]);
+		//	Laplacian(fv[0], fv[0]) -= 1/tan(angle2) / (2 * LAR[fv[0]]);
+		//	Laplacian(fv[2], fv[0]) += 1/tan(angle2) / (2 * LAR[fv[2]]);
+		//	Laplacian(fv[2], fv[2]) -= 1/tan(angle2) / (2 * LAR[fv[2]]);
+			L.push_back(Eigen::Triplet<double>(fv[0], fv[2], 1 / tan(angle2) / (2 * LAR[fv[0]])));
+			L.push_back(Eigen::Triplet<double>(fv[0], fv[0], -1 / tan(angle2) / (2 * LAR[fv[0]])));
+			L.push_back(Eigen::Triplet<double>(fv[2], fv[0], 1 / tan(angle2) / (2 * LAR[fv[2]])));
+			L.push_back(Eigen::Triplet<double>(fv[2], fv[2], -1 / tan(angle2) / (2 * LAR[fv[2]])));
+
+
+			L.push_back(Eigen::Triplet<double>(fv[1], fv[2], 1 / tan(angle1) / (2 * LAR[fv[1]])));
+			L.push_back(Eigen::Triplet<double>(fv[1], fv[1], -1 / tan(angle1) / (2 * LAR[fv[1]])));
+			L.push_back(Eigen::Triplet<double>(fv[2], fv[1], 1 / tan(angle1) / (2 * LAR[fv[2]])));
+			L.push_back(Eigen::Triplet<double>(fv[2], fv[2], -1 / tan(angle1) / (2 * LAR[fv[2]])));
 		}
 	}
+		Laplacian.setFromTriplets(L.begin(), L.end());
+		Laplacian.makeCompressed();
 }

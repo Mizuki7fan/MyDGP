@@ -29,14 +29,17 @@ GeneralWidget::GeneralWidget()
 {
 	lName->setText(QStringLiteral("==  通用功能  =="));
 	pbPrintInfo = new QPushButton(QStringLiteral("打印网格信息"));
+	pbCalcVolume = new QPushButton(QStringLiteral("计算体积"));
 	QGridLayout* layout = new QGridLayout();
 	layout->addWidget(lName, 0, 0);
 	layout->addWidget(pbReturn, 1, 0);
 	layout->addWidget(pbPrintInfo, 2, 0);
+	layout->addWidget(pbCalcVolume, 3, 0);
 	layout->setAlignment(Qt::AlignTop);
 	layout->setMargin(0);
 	this->setLayout(layout);
 	connect(pbPrintInfo, &QPushButton::clicked, this, [=]() {this->PrintInfo(); });
+	connect(pbCalcVolume, SIGNAL(clicked()), SIGNAL(CalcVolumeSignal()));
 
 }
 
@@ -105,7 +108,19 @@ Smoothing::Smoothing()
 	line->setFrameShadow(QFrame::Sunken);
 	line2->setFrameShape(QFrame::HLine);
 	line2->setFrameShadow(QFrame::Sunken);
-//	lSeparator->
+	QLabel* lIntegrationKind = new QLabel(QStringLiteral("欧拉积分类型:"));
+	QStringList IntegrationKind;
+	IntegrationKind << "implicit" << "explicit";
+	qbIntegrationKind = new QComboBox();
+	qbIntegrationKind->addItems(IntegrationKind);
+	QLabel* lSmoothObject = new QLabel(QStringLiteral("对...进行Smooth"));
+	QStringList SmoothObject;
+	SmoothObject<< QStringLiteral("顶点位置") << QStringLiteral("曲率");
+	qbSmoothObject=new QComboBox();
+	qbSmoothObject->addItems(SmoothObject);
+
+	pbSmoothing = new QPushButton(QStringLiteral("做Smoothing"));
+
 
 	QVBoxLayout* layout = new QVBoxLayout();
 	layout->addWidget(lName);
@@ -117,6 +132,12 @@ Smoothing::Smoothing()
 	layout->addWidget(pbFairing);
 	layout->addWidget(line2);
 	layout->addWidget(lLaplacianKind);
+	layout->addWidget(qbLaplacianKind);
+	layout->addWidget(lIntegrationKind);
+	layout->addWidget(qbIntegrationKind);
+	layout->addWidget(lSmoothObject);
+	layout->addWidget(qbSmoothObject);
+	layout->addWidget(pbSmoothing);
 
 	layout->setAlignment(Qt::AlignTop);
 	layout->setMargin(0);
@@ -126,6 +147,11 @@ Smoothing::Smoothing()
 	connect(pbFairing, &QPushButton::clicked, this, [=]() {
 		int fairingpower = leFairingPower->text().toInt();
 		this->DoFairingSignal(fairingpower);
+		});
+	connect(pbSmoothing, &QPushButton::clicked, this, [=]() {
+		int laplacekind = qbLaplacianKind->currentIndex();
+		int integrationkind = qbIntegrationKind->currentIndex();
+		this->DoSmoothingSignal(laplacekind, integrationkind);
 		});
 
 }

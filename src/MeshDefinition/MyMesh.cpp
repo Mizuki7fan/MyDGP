@@ -1,6 +1,9 @@
 #include "MyMesh.h"
 #include <random>
 #include <fstream>
+#ifdef LINSYSSOLVER_USE_EIGEN
+#include "../LinSysSolver/EigenLinSolver.h"
+#endif // LINSYSSOLVER_USE_EIGEN
 
 void MyMesh::ComputeLAR(int kind)
 {//类型:重心、Voronoi、混合
@@ -79,18 +82,13 @@ Eigen::Vector3d MyMesh::ComputeTriangleCenter(Eigen::Vector3d f_normal, Eigen::V
 void MyMesh::UpdateMeanCurvature()
 {
 	ComputeLaplacian(0);//算cotangent的拉普拉斯；
-	int nv = NVertices();
-	Vertices.resize(nv, 3);
+	Vertices.resize(NVertices() , 3);
 	Vertices.setZero();
-	for (int i=0;i<nv;i++)
-	{
-		Point p = getPoint(i);
-		Vertices(i, 0) = p[0];
-		Vertices(i, 1) = p[1];
-		Vertices(i, 2) = p[2];
-	}
-	Eigen::MatrixXd left	= Laplacian * Vertices;
-
+	LoadVertex();//加载Vertex矩阵
+	Eigen::MatrixXd left	= Laplacian.toDense() * Vertices;
+	std::ofstream out("left.txt");
+	out << left;
+	out.close();
 	UpdateNormals();
 	VertexCurvature.resize(NVertices());
 	VertexCurvature.setZero();
@@ -104,9 +102,6 @@ void MyMesh::UpdateMeanCurvature()
 		else
 			VertexCurvature(i) = -0.5* v_row.norm();
 	}
-	std::ofstream test("test.txt");
-	test << VertexCurvature;
-	test.close();
 }
 
 void MyMesh::UpdateGaussianCurvature()
@@ -143,12 +138,10 @@ void MyMesh::MakeNoise()
 	std::normal_distribution<double> d(e_length);
 	for (int i = 0; i < NVertices(); i++)
 	{
-//		double r = *d(generator);
 		double rx = d(generator);
 		double ry = d(generator);
 		double rz = d(generator);
 		Eigen::Vector3d n(rx, ry, rz);
-//		SetVerticeNewCoord(i,(getVertexCoord(i) + r * getVertexNormal(i)));
 		SetVerticeNewCoord(i, (getVertexCoord(i) +  0.5*n/n.norm() * e_length));
 	}
 }
@@ -158,37 +151,56 @@ void MyMesh::Fairing(int power)
 	//算拉普拉斯矩阵
 	ComputeLaplacian(0);
 	//寻找边界上的点
-	Eigen::MatrixXd L = Laplacian;
+	Eigen::MatrixXd L =Laplacian.toDense();
+
 	Eigen::MatrixXd b(NVertices(), 3);
 	b.setZero();
-	std::ofstream res3("result.txt");
-	res3 << L << std::endl;
-	res3.close();
 
-	std::ofstream res2("result1.txt");
-	res2 << L.inverse() << std::endl;
-	res2.close();
 	for (int i = 0; i < NVertices(); i++)
 	{
 		if (isBoundaryVertex(i))
 		{
 			for (int j = 0; j < NVertices(); j++)
 			{
-				Laplacian(i, j) = 0;
+				L(i, j) = 0;
 			}
-			Laplacian(i, i) = 1;
+			L(i, i) = 1;
 			b(i, 0) = Vertices(i, 0);
 			b(i, 1) = Vertices(i, 1);
 			b(i, 2) = Vertices(i, 2);
 		}
 	}
-	Eigen::MatrixXd res = L.inverse() * b;
+	Eigen::SparseMatrix<double> LL = L.sparseView();
+	//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
+	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+	solver.compute(LL);
+	Eigen::MatrixXd res = solver.solve(b);
+
 	for (int i = 0; i < NVertices(); i++)
 	{
 		Eigen::Vector3d value(res(i, 0), res(i, 1), res(i, 2));
 		SetVerticeNewCoord(i, value);
 	}
-	std::cout << 123 << std::endl;
+}
+
+void MyMesh::Smoothing(int laplacekind, int integrationkind)
+{
+	if (laplacekind==1)
+	{
+		ComputeLAR(1);
+		ComputeLaplacian(1);//更新拉普拉斯
+	}
+	double steplength = 0.5;
+	Eigen::MatrixXd delta_Vertex = Laplacian.toDense() * Vertices;
+	for (int i = 0; i < NVertices(); i++)
+	{
+		Vertices(i, 0) = Vertices(i, 0) + steplength * delta_Vertex(i, 0);
+		Vertices(i, 1) = Vertices(i, 1) + steplength * delta_Vertex(i, 1);
+		Vertices(i, 2) = Vertices(i, 2) + steplength * delta_Vertex(i, 2);
+	}
+	Eigen::Vector3d p1a(Vertices(1, 0), Vertices(1, 1), Vertices(1, 2));
+	Eigen::Vector3d p2a(Vertices(100, 0), Vertices(100, 1), Vertices(100, 2));
+
 }
 
 void MyMesh::getVCurvature(std::vector<double>& c)
@@ -199,3 +211,9 @@ void MyMesh::getVCurvature(std::vector<double>& c)
 		c[i] = VertexCurvature[i];
 	}
 }
+
+MyMesh::MyMesh()
+{
+//	solver = new EigenLinSolver();
+}
+
