@@ -13,8 +13,8 @@
 
 MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	: QGLViewerWidget(parent),
-	ptMin(0.0),
-	ptMax(0.0),
+	ptMin(0.0,0.0,0.0),
+	ptMax(0.0, 0.0, 0.0),
 	isEnableLighting(true),
 	isTwoSideLighting(false),
 	isDrawBoundingBox(false),
@@ -58,13 +58,18 @@ void MeshViewerWidget::UpdateMesh(void)
 		std::cerr << "ERROR: UpdateMesh() No vertices!" << std::endl;
 		return;
 	}
-	ptMin=DBL_MAX;
-	ptMax= -DBL_MAX;
+	ptMin[0] = ptMin[1] = ptMin[2] = DBL_MAX;
+	ptMax[0] = ptMax[1] = ptMax[2] = -DBL_MAX;
 
 	for (int i = 0; i < mesh->NVertices(); i++)
 	{
-		ptMin.Minimize(mesh->getPoint(i));
-		ptMax.Maximize(mesh->getPoint(i));
+		Eigen::Vector3d p = mesh->getPoint(i);
+		if (p.x() < ptMin.x()) ptMin.x() = p.x();
+		if (p.y() < ptMin.y()) ptMin.y() = p.y();
+		if (p.z() < ptMin.z()) ptMin.z() = p.z();
+		if (p.x() > ptMax.x()) ptMax.x() = p.x();
+		if (p.y() > ptMax.y()) ptMax.y() = p.y();
+		if (p.z() > ptMax.z()) ptMax.z() = p.z();
 	}
 
 	double avelen = 0.0;
@@ -78,7 +83,7 @@ void MeshViewerWidget::UpdateMesh(void)
 		avelen += len;
 	}
 
-	SetScenePosition(((ptMin + ptMax)*0.5).toEigen3d(), (ptMin - ptMax).norm()*0.5);
+	SetScenePosition((ptMin + ptMax) * 0.5, (ptMin - ptMax).norm() * 0.5);
 	std::cout << "Information of the input mesh:" << std::endl;
 	std::cout << "  [V, E, F] = [" << mesh->NVertices() << ", " << mesh->NEdges() << ", " << mesh->NFaces() << "]\n";
 	std::cout << "  BoundingBox:\n";
@@ -188,7 +193,7 @@ void MeshViewerWidget::MeshMakeNoise()
 
 void MeshViewerWidget::DoFairing(int power)
 {
-	std::cout << power << std::endl;
+
 	if (power == 0)
 	{
 		QMessageBox::critical(NULL, windowTitle(), QStringLiteral("´íÎóµÄÃÝÖµ"));

@@ -4,15 +4,16 @@
 class DGPAlgorithm
 {
 public:
-	//算网格的点的曲率
+	//算网格的点的曲率，参数为局部平均区域的类型、曲率的类型
 	static void ComputeCurvature(int localaverageregionKind, int curvatureKind, MyMesh& mesh, std::vector<double>& curvature);
-	static void ComputeMeanCurvature( MyMesh& mesh, std::vector<double>& curvature);
-	static void ComputeGaussianCurvature( MyMesh& mesh, std::vector<double>& curvature);
+	
+	//制造网格噪音
 	static void MakeNoise(MyMesh& mesh);
+	//进行Fairing操作
 	static void DoFairing(MyMesh& mesh, int power);
+	//进行Smoothing操作
 	static void DoSmoothing(MyMesh& mesh, int laplacekind,int integrationkind);
 
 private:
-//	void ComputeLocalAveragingRegion()
 
 };

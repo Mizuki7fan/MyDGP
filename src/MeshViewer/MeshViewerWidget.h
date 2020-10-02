@@ -56,7 +56,7 @@ protected:
 	QString strMeshFileName;
 	QString strMeshBaseName;
 	QString strMeshPath;
-	MyMesh::Point ptMin, ptMax;
+	Eigen::Vector3d ptMin, ptMax;
 	bool isEnableLighting;
 	bool isTwoSideLighting;
 	bool isDrawBoundingBox;

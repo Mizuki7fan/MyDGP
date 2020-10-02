@@ -1,64 +1,82 @@
 #include "MyMesh.h"
 #include <random>
 #include <fstream>
-#ifdef LINSYSSOLVER_USE_EIGEN
-#include "../LinSysSolver/EigenLinSolver.h"
-#endif // LINSYSSOLVER_USE_EIGEN
+//#ifdef LINSYSSOLVER_USE_EIGEN
+//#include "../LinSysSolver/EigenLinSolver.h"
+//#endif // LINSYSSOLVER_USE_EIGEN
 
-void MyMesh::ComputeLAR(int kind)
-{//类型:重心、Voronoi、混合
+void MyMesh::ComputeLAR()//计算顶点的局部平均区域
+{
+	if (LAR_latest)
+		return;
+
+	LAR.resize(NVertices());	
 	LAR.setZero();
-	LAR.resize(NFaces());
-	//遍历每一个面，获取面的"中心"
 	for (int i = 0; i < NFaces(); i++)
 	{
-		Eigen::Vector3d center1,center2,center3;
+		Eigen::Vector3d center;
 		int v1, v2, v3;
 		getFaceVertices(i, v1, v2, v3);
-		Point p1 = getPoint(v1), p2 = getPoint(v2), p3 = getPoint(v3);
-		Point m12 = (p1 + p2) / 2, m13 = (p1 + p3) / 2, m23 = (p2 + p3) / 2;
-		if (kind ==0)//重心坐标
+		Eigen::Vector3d p1 = getPoint(v1), p2 = getPoint(v2), p3 = getPoint(v3);
+		Eigen::Vector3d m12 = (p1 + p2) / 2, m13 = (p1 + p3) / 2, m23 = (p2 + p3) / 2;
+		if (LAR_kind == 0)//重心坐标
 		{
-			center1 = ((p1 + p2 + p3) / 3).toEigen3d();
-			center2 = center1;
-			center3 = center1;
+			center = ((p1 + p2 + p3) / 3);
 		}
-		else if (kind == 1)//Voronoi
+		else if (LAR_kind == 1)//Voronoi
 		{
 			Eigen::Vector3d f_normal = getFaceNormal(i);
-			//Eigen::vec3d
-			center1 = ComputeTriangleCenter(f_normal,p1.toEigen3d(),p2.toEigen3d(),p3.toEigen3d());
-			center2= ComputeTriangleCenter(f_normal, p2.toEigen3d(), p3.toEigen3d(), p1.toEigen3d());
-			center3= ComputeTriangleCenter(f_normal, p3.toEigen3d(), p1.toEigen3d(), p2.toEigen3d());
-			double test1=(center1 - m13.toEigen3d()).dot(center1 - m12.toEigen3d());
-			double test2=(center2 - m23.toEigen3d()).dot(center2 - m12.toEigen3d());
-			double test3=(center3 - m13.toEigen3d()).dot(center3 - m23.toEigen3d());
+			center = ComputeTriangleCirumcenter(p1, p2, p3);
 		}
-		else if (kind == 2) //Mixed
-		{
+		else if (LAR_kind == 2) //Mixed
+		{//
 			Eigen::Vector3d f_normal = getFaceNormal(i);
 			double angle1, angle2, angle3;
 			getFaceAngles(i, angle1, angle2, angle3);
-			if (angle1 <= 0.5 * M_PI)
-				center1 = ComputeTriangleCenter(f_normal, p1.toEigen3d(), p2.toEigen3d(), p3.toEigen3d());
-			else
-				center1 = (p2 + p3).toEigen3d() / 2;
-			if (angle2 <= 0.5 * M_PI)
-				center2 = ComputeTriangleCenter(f_normal, p2.toEigen3d(), p3.toEigen3d(), p1.toEigen3d());
-			else
-				center2 = (p1 + p3).toEigen3d() / 2;
-			if (angle3 <= 0.5 * M_PI)
-				center3 = ComputeTriangleCenter(f_normal, p3.toEigen3d(), p1.toEigen3d(), p2.toEigen3d());
-			else
-				center3 = (p2 + p1).toEigen3d() / 2;
+			{
+				if (angle1 > 0.5 * M_PI)
+					center = m23;
+				else if (angle2 > 0.5 * M_PI)
+					center = m13;
+				else if (angle3 > 0.5 * M_PI)
+					center = m12;
+				else
+					center = ComputeTriangleCirumcenter(p1, p2, p3);
+			}
 		}
-		LAR[v1] += ComputeArea(p1.toEigen3d(), m12.toEigen3d(), center1) + ComputeArea(p1.toEigen3d(), m13.toEigen3d(), center1);
-		LAR[v2] += ComputeArea(p2.toEigen3d(), m12.toEigen3d(), center2) + ComputeArea(p2.toEigen3d(), m23.toEigen3d(), center2);
-		LAR[v3] += ComputeArea(p3.toEigen3d(), m13.toEigen3d(), center3) + ComputeArea(p3.toEigen3d(), m23.toEigen3d(), center3);
+		LAR[v1] += (ComputeTriangleArea(p1, m12, center) + ComputeTriangleArea(p1, m13, center));
+		LAR[v2] += (ComputeTriangleArea(p2, m12, center) + ComputeTriangleArea(p2, m23, center));
+		LAR[v3] += (ComputeTriangleArea(p3, m13, center) + ComputeTriangleArea(p3, m23, center));
 	}
+	LAR_latest = true;
 }
 
-double MyMesh::ComputeArea(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3)
+Eigen::Vector3d MyMesh::ComputeTriangleCirumcenter(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3)
+{//处理三点共线的情况
+	Eigen::Vector3d e12 = p2 - p1;
+	Eigen::Vector3d e13 = p3 - p1;
+	if (e12.x() * e13.y() - e13.x() * e12.y() == 0)
+	{
+		std::cerr << "三点共线发生" << std::endl;
+		return (p1 + p2 + p3) / 3;//如果共线则返回三点的重心
+	}
+	Eigen::Vector3d normal =e12.cross(e13);
+ 	Eigen::Vector3d dir = normal.cross(e12);
+	dir = dir / dir.norm();
+	Eigen::Vector3d m12 = (p1 + p2) / 2;
+	Eigen::Vector3d m23 = (p2 + p3) / 2;
+	Eigen::Vector3d m13 = (p1 + p3) / 2;
+	double kup1 = (m12.x() - p1.x()) * (m12.x() - p1.x()) + (m12.y() - p1.y()) * (m12.y() - p1.y()) + (m12.z() - p1.z()) * (m12.z() - p1.z());
+	double kup2= (m12.x() - p3.x()) * (m12.x() - p3.x()) + (m12.y() - p3.y()) * (m12.y() - p3.y()) + (m12.z() - p3.z()) * (m12.z() - p3.z());
+	double kdown1 = (m12.x() - p1.x()) * dir.x() + (m12.y() - p1.y()) * dir.y() + (m12.z() - p1.z()) * dir.z();
+	double kdown2 = (m12.x() - p3.x()) * dir.x() + (m12.y() - p3.y()) * dir.y() + (m12.z() - p3.z()) * dir.z();
+
+	double k = (kup1 - kup2) / (2 * (kdown2 - kdown1));
+	Eigen::Vector3d center = m12 + k * dir;
+	return center;
+}
+
+double MyMesh::ComputeTriangleArea(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3)
 {
 	Eigen::Vector3d e12 = (p2 - p1);
 	Eigen::Vector3d e13 = (p3 - p1);
@@ -66,67 +84,82 @@ double MyMesh::ComputeArea(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vect
 	return area;
 }
 
-Eigen::Vector3d MyMesh::ComputeTriangleCenter(Eigen::Vector3d f_normal, Eigen::Vector3d p1, Eigen::Vector3d p2, Eigen::Vector3d p3)
+void MyMesh::ComputeCurvature()
 {
-	Eigen::Vector3d e12 = p2- p1;
-	Eigen::Vector3d e13 = p3 - p1;
-	Eigen::Vector3d e23 = p3 - p2;
-	Eigen::Vector3d e12n = f_normal.cross(e12);
-	double t1up = (e12.x() - e13.x()) * (p3[0] - p1[0]) + (e12.y() - e13.y()) * (p3[1] - p1[1]) + (e12.z() - e13.z()) * (p3[2] - p1[2]);
-	double t1down = e12n.x() * (p3[0] - p1[0]) + e12n.y() * (p3[1] - p1[1]) + e12n.z() * (p3[2] - p1[2]);
-	double t1 = -t1up / t1down;
-	Eigen::Vector3d center1 = (p1+p2)/2 + t1 * e12n;
-	return center1;
+	if (Curvature_latest)//如果曲率没有变动则直接返回
+		return;
+	Curvature.resize(NVertices());
+	switch (Curvature_kind)
+	{
+	case 0://平均曲率
+	{
+		ComputeLaplacian(1);//必须是Cotangent的laplace
+		LoadVertex();
+		LoadVerticeNormal();
+		Eigen::MatrixXd left = Laplacian.toDense() * Vertices;		
+		for (int i = 0; i < NVertices(); i++)
+		{
+			Eigen::Vector3d n = Eigen::Vector3d(VertexNormal(i, 0), VertexNormal(i, 1), VertexNormal(i, 2));
+			Eigen::Vector3d v_row = Eigen::Vector3d(left(i, 0), left(i, 1), left(i, 2));
+			if (n.dot(v_row) > 0)
+				Curvature[i] = 0.5 * v_row.norm();
+			else
+				Curvature[i] = -0.5 * v_row.norm();
+		}
+		break;
+	}
+	case 1:
+	{
+		ComputeLaplacian(1);//必须是Cotangent的laplace
+		LoadVertex();
+		Eigen::MatrixXd left = Laplacian.toDense() * Vertices;
+		for (int i = 0; i < NVertices(); i++)
+		{
+			Eigen::Vector3d v_row = Eigen::Vector3d(left(i, 0), left(i, 1), left(i, 2));
+				Curvature[i] = abs(0.5 * v_row.norm());
+		}
+		break;
+	}
+	case 2:
+	{
+		ComputeLAR();
+		std::vector<double> v_angledefect(NVertices(), 2 * M_PI);
+		for (int i = 0; i < NFaces(); i++)
+		{
+			int v1, v2, v3;
+			double angle1, angle2, angle3;
+			getFaceVertices(i, v1, v2, v3);
+			getFaceAngles(i, angle1, angle2, angle3);
+			v_angledefect[v1] -= angle1;
+			v_angledefect[v2] -= angle2;
+			v_angledefect[v3] -= angle3;
+		}
+		for (int i = 0; i < NVertices(); i++)
+			Curvature[i] = v_angledefect[i] / LAR[i];
+		break;
+	}
+	default:
+		break;
+	}
+	Curvature_latest = true;//仅有曲率被修改
+	eigen_output();
 }
 
-void MyMesh::UpdateMeanCurvature()
+void MyMesh::VertexModified()
 {
-	ComputeLaplacian(0);//算cotangent的拉普拉斯；
-	Vertices.resize(NVertices() , 3);
-	Vertices.setZero();
-	LoadVertex();//加载Vertex矩阵
-	Eigen::MatrixXd left	= Laplacian.toDense() * Vertices;
-	std::ofstream out("left.txt");
-	out << left;
-	out.close();
-	UpdateNormals();
-	VertexCurvature.resize(NVertices());
-	VertexCurvature.setZero();
-
-	for (int i = 0; i < NVertices(); i++)
-	{
-		Eigen::Vector3d n = getVertexNormal(i);
-		Eigen::Vector3d v_row(left(i, 0), left(i, 1), left(i, 2));
-		if (n.dot(v_row) > 0)
-			VertexCurvature[i] = 0.5*v_row.norm();
-		else
-			VertexCurvature(i) = -0.5* v_row.norm();
-	}
+	LAR_latest = false;
+	Vertices_latest = false;
+	VertexNormal_latest = false;
+	FaceNormal_latest = false;
+	Curvature_latest = false;
+	if (Laplacian_kind == 1)//如果Laplace是cotangent的，那么也要更新
+		Laplacian_latest = false;
 }
 
-void MyMesh::UpdateGaussianCurvature()
-{
-	VertexCurvature.resize(NVertices());
-
-	std::vector<double> v_angledefect(NVertices(),2*M_PI);
-	for (int i = 0; i < NFaces(); i++)
-	{
-		int v1, v2, v3;
-		double angle1, angle2, angle3;
-		getFaceVertices(i, v1, v2, v3);
-		getFaceAngles(i, angle1, angle2, angle3);
-		v_angledefect[v1] -= angle1;
-		v_angledefect[v2] -= angle2;
-		v_angledefect[v3] -= angle3;
-	}
-	for (int i = 0; i < NVertices(); i++)
-	{
-		VertexCurvature[i]=	v_angledefect[i] / LAR[i];
-	}
-}
 
 void MyMesh::MakeNoise()
 {
+	LoadVertex();
 	double e_length = 0;
 	for (int i = 0; i < NEdges(); i++)
 	{
@@ -142,17 +175,20 @@ void MyMesh::MakeNoise()
 		double ry = d(generator);
 		double rz = d(generator);
 		Eigen::Vector3d n(rx, ry, rz);
-		SetVerticeNewCoord(i, (getVertexCoord(i) +  0.5*n/n.norm() * e_length));
+		Vertices(i, 0) += 0.5 * n.x() / n.norm() * e_length;
+		Vertices(i, 1) += 0.5 * n.y() / n.norm() * e_length;
+		Vertices(i, 2) += 0.5 * n.z() / n.norm() * e_length;
 	}
+	VertexModified();
 }
 
 void MyMesh::Fairing(int power)
 {
 	//算拉普拉斯矩阵
-	ComputeLaplacian(0);
+	ComputeLaplacian();
+	LoadVertex();
 	//寻找边界上的点
 	Eigen::MatrixXd L =Laplacian.toDense();
-
 	Eigen::MatrixXd b(NVertices(), 3);
 	b.setZero();
 
@@ -179,17 +215,15 @@ void MyMesh::Fairing(int power)
 	for (int i = 0; i < NVertices(); i++)
 	{
 		Eigen::Vector3d value(res(i, 0), res(i, 1), res(i, 2));
-		SetVerticeNewCoord(i, value);
+		SetVertexNewCoord(i, value);
 	}
+	VertexModified();
 }
 
-void MyMesh::Smoothing(int laplacekind, int integrationkind)
+void MyMesh::Smoothing(int integrationkind)
 {
-	if (laplacekind==1)
-	{
-		ComputeLAR(1);
-		ComputeLaplacian(1);//更新拉普拉斯
-	}
+	ComputeLaplacian();//更新拉普拉斯
+	LoadVertex();
 	double steplength = 0.5;
 	Eigen::MatrixXd delta_Vertex = Laplacian.toDense() * Vertices;
 	for (int i = 0; i < NVertices(); i++)
@@ -198,18 +232,76 @@ void MyMesh::Smoothing(int laplacekind, int integrationkind)
 		Vertices(i, 1) = Vertices(i, 1) + steplength * delta_Vertex(i, 1);
 		Vertices(i, 2) = Vertices(i, 2) + steplength * delta_Vertex(i, 2);
 	}
-	Eigen::Vector3d p1a(Vertices(1, 0), Vertices(1, 1), Vertices(1, 2));
-	Eigen::Vector3d p2a(Vertices(100, 0), Vertices(100, 1), Vertices(100, 2));
-
+	SetVerticesNewCoord();
+	VertexModified();
 }
 
 void MyMesh::getVCurvature(std::vector<double>& c)
 {
 	c.resize(NVertices());
-	for (int i = 0; i < VertexCurvature.size(); i++)
+
+	for (int i = 0; i < Curvature.size(); i++)
 	{
-		c[i] = VertexCurvature[i];
+		c[i] = Curvature[i];
 	}
+}
+
+void MyMesh::SetLaplacianKind(int i)
+{
+	"0-uniform，1-cotangent";
+	std::cout << "修改了Laplacian的类型，当前为：" << Laplacian_kind << "，修改为：" << i << std::endl;
+	if (Laplacian_kind != i)
+	{
+		Laplacian_kind = i;
+		Laplacian_latest = false;
+	}
+}
+
+void MyMesh::SetLARKind(int i)
+{
+	"0-Barycentric，1-Voronoi，2-Mixed";
+	std::cout << "修改了局部平均区域的类型，当前为：" << LAR_kind << "，修改为：" << i << std::endl;
+	if (LAR_kind!=i)
+	{ 
+		LAR_kind = i;
+		LAR_latest = false; 
+		Curvature_latest = false;//曲率需要同步被修改
+		if (LAR_kind != 0)
+		{//如果当前的LAR是voronoi或者mixed，那么Laplacian需要同步更新
+			Laplacian_latest = false;
+		}
+	}
+}
+void MyMesh::SetCurvatureKind(int i)
+{
+	"0-Mean，1-AbsoluteMean,2-Gaussian";
+	std::cout << "修改了曲率的的类型，当前为：" << Curvature_kind << "，修改为：" << i << std::endl;
+	if (Curvature_kind != i)
+	{
+		Curvature_kind = i;
+		Curvature_latest = false;
+		if (LAR_kind != 0)
+		{//如果当前的LAR是voronoi或者mixed，那么Laplacian需要同步更新
+			Laplacian_latest = false;
+		}
+	}
+}
+;
+
+void MyMesh::eigen_output()
+{
+	std::ofstream laplacian_f("output/laplacian.txt");
+	laplacian_f << Laplacian;
+	laplacian_f.close();
+
+	std::ofstream LAR_f("output/LAR.txt");
+	LAR_f << LAR;
+	LAR_f.close();
+
+	std::ofstream Curvature_f("output/Curvature.txt");
+	Curvature_f << Curvature;
+	Curvature_f.close();
+
 }
 
 MyMesh::MyMesh()

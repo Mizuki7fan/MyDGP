@@ -27,12 +27,11 @@ public:
 	Mesh();
     bool Load(std::string);
 	void LoadVertex();
-	void SetVertexNewCoord();
 	bool Write(std::string);
 	void Clear();
 	void UpdateNormals();
-	void RequestVerticeNormal(void);
-	void RequestFaceNormal(void);
+	void LoadVerticeNormal(void);
+	void LoadFaceNormal(void);
 	bool VerticesEmpty();
 	int NVertices() const;
 	int NEdges() const;
@@ -40,7 +39,7 @@ public:
 	double CalcEdgeLength(int i);
 	double CalcFaceArea();
 	double getEdgeLength(int) const;
-	MyMesh::Point getPoint(int i) const;
+	Eigen::Vector3d getPoint(int i) const;
 	Eigen::Vector3d getVertexNormal(int i) const;
 	Eigen::Vector3d getFaceNormal(int i) const;
 	void getEdgeVertices(int e, int& v1, int& v2) const;
@@ -48,11 +47,11 @@ public:
 	void getFaceAngles(int f, double& angle1, double& angle2, double& angle3) const;
 	bool isBoundary(int) const;
 	bool isBoundaryVertex(int) const;
-	void SetVerticeNewCoord(int, Eigen::Vector3d);
+	void SetVerticesNewCoord();
+	void SetVertexNewCoord(int, Eigen::Vector3d);
 	Eigen::Vector3d getVertexCoord(int);
 	double ComputeMeshVolume();
-
-	void ComputeLAR(int kind);
+	void ComputeLaplacian();
 	void ComputeLaplacian(int);
 
 	T mesh;

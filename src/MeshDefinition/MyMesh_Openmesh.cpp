@@ -3,19 +3,17 @@
 
 Mesh::Mesh()
 {
-	mesh.update_vertex_normals();
-	mesh.request_vertex_normals();
-	mesh.update_face_normals();
-	mesh.request_face_normals();
 }
 
 bool Mesh::Load(std::string s)
-{
+{//加载网格
 	return OpenMesh::IO::read_mesh(mesh, s);
 }
 
 void Mesh::LoadVertex()
 {
+	if (Vertices_latest)
+		return;
 	Vertices.resize(mesh.n_vertices(),3);
 	for (auto a : mesh.vertices())
 	{
@@ -24,16 +22,7 @@ void Mesh::LoadVertex()
 		Vertices(a.idx(), 1) = p.data()[1];
 		Vertices(a.idx(), 2) = p.data()[2];
 	}
-}
-
-void Mesh::SetVertexNewCoord()
-{
-	for (auto vh : mesh.vertices())
-	{
-		int idx = vh.idx();
-		T::Point p1(Vertices(idx, 0), Vertices(idx, 1), Vertices(idx, 2));
-		mesh.set_point(vh, p1);
-	}
+	Vertices_latest = true;
 }
 
 bool Mesh::Write(std::string s)
@@ -52,8 +41,11 @@ void Mesh::UpdateNormals()
 	mesh.request_face_normals();
 }
 
-void Mesh::RequestVerticeNormal(void)
+void Mesh::LoadVerticeNormal(void)
 {
+	if (VertexNormal_latest)
+		return;
+	mesh.update_vertex_normals();
 	VertexNormal.resize(mesh.n_vertices(),3);
 	for (auto v : mesh.vertices())
 	{
@@ -62,10 +54,20 @@ void Mesh::RequestVerticeNormal(void)
 		VertexNormal(v.idx(), 1) = n.data()[1];
 		VertexNormal(v.idx(), 2) = n.data()[2];
 	}
+	VertexNormal_latest = true;
 }
 
-void Mesh::RequestFaceNormal(void)
+void Mesh::LoadFaceNormal(void)
 {
+	if (FaceNormal_latest)
+		return;
+	else if (!Vertices_latest)
+	{
+		SetVerticesNewCoord();
+		mesh.update_vertex_normals();
+		mesh.update_face_normals();
+		Vertices_latest = true;
+	}
 	FaceNormal.resize(mesh.n_faces(), 3);
 	for (auto f : mesh.faces())
 	{
@@ -74,6 +76,7 @@ void Mesh::RequestFaceNormal(void)
 		FaceNormal(f.idx(), 1) = n.data()[1];
 		FaceNormal(f.idx(), 2) = n.data()[2];
 	}
+	FaceNormal_latest = true;
 }
 
 bool Mesh::VerticesEmpty()
@@ -124,10 +127,10 @@ double Mesh::getEdgeLength(int i) const
 	return mesh.calc_edge_length(mesh.edge_handle(i));
 }
 
-MyMesh::Point Mesh::getPoint(int i) const
+Eigen::Vector3d Mesh::getPoint(int i) const
 {
 	T::Point tp = mesh.point(mesh.vertex_handle(i));
-	return MyMesh::Point(tp[0],tp[1],tp[2]);
+	return Eigen::Vector3d(tp[0],tp[1],tp[2]);
 }
 
 Eigen::Vector3d Mesh::getVertexNormal(int i) const
@@ -190,7 +193,17 @@ bool Mesh::isBoundaryVertex(int i) const
 	return mesh.is_boundary(mesh.vertex_handle(i));
 }
 
-void Mesh::SetVerticeNewCoord(int i, Eigen::Vector3d p)
+void Mesh::SetVerticesNewCoord()
+{
+	for (auto vh : mesh.vertices())
+	{
+		int idx = vh.idx();
+		T::Point p(Vertices(vh.idx(), 0), Vertices(vh.idx(), 1), Vertices(vh.idx(), 2));
+		mesh.set_point(vh, p);
+	}
+}
+
+void Mesh::SetVertexNewCoord(int i, Eigen::Vector3d p)
 {
 	T::VertexHandle vh = mesh.vertex_handle(i);
 	T::Point p1(p.x(),p.y(),p.z());
@@ -225,82 +238,19 @@ double Mesh::ComputeMeshVolume()
 		double height =(n | eh);
 		vol += area * height / 3;
 	}
-	this->volume = vol;
+	this->MeshVolume = vol;
 	std::cout << "网格体积为: "<<vol << std::endl;
 	return vol;
 }
 
-void Mesh::ComputeLAR(int kind)
+void Mesh::ComputeLaplacian()
 {
-	int nv = mesh.n_vertices();
-	LAR.resize(nv);
-	for (T::FaceHandle fh : mesh.faces())
-	{
-		T::Point center1, center2, center3;
-		T::Point p1, p2, p3;
-		std::vector<int> fv;
-		for (auto fvi : mesh.fv_range(fh))
-		{
-			fv.push_back(fvi.idx());
-		}
-		p1 = mesh.point(mesh.vertex_handle(fv[0]));
-		p2 = mesh.point(mesh.vertex_handle(fv[1]));
-		p3 = mesh.point(mesh.vertex_handle(fv[2]));
-		T::Point m12 = (p1 + p2) / 2, m13 = (p1 + p3) / 2, m23 = (p2 + p3) / 2;
-		switch (kind)
-		{
-		case 0://重心坐标
-			center1 = (p1 + p2 + p3) / 3;
-			center2 = center1;
-			center3 = center1;
-			break;
-		case 1:
-			center1 = toPoint(ComputeTriangleCenter(Eigen::Vector3d(mesh.normal(fh).data()), Eigen::Vector3d(p1.data()), Eigen::Vector3d(p2.data()), Eigen::Vector3d(p3.data())));
-			center2 = toPoint(ComputeTriangleCenter(Eigen::Vector3d(mesh.normal(fh).data()), Eigen::Vector3d(p2.data()), Eigen::Vector3d(p3.data()), Eigen::Vector3d(p1.data())));
-			center3 = toPoint(ComputeTriangleCenter(Eigen::Vector3d(mesh.normal(fh).data()), Eigen::Vector3d(p3.data()), Eigen::Vector3d(p1.data()), Eigen::Vector3d(p2.data())));
-			break;
-		case 2:
-		{
-			OpenMesh::Vec3d e12 = mesh.point(mesh.vertex_handle(fv[1])) - mesh.point(mesh.vertex_handle(fv[0]));
-			OpenMesh::Vec3d e13 = mesh.point(mesh.vertex_handle(fv[2])) - mesh.point(mesh.vertex_handle(fv[0]));
-			OpenMesh::Vec3d e23 = mesh.point(mesh.vertex_handle(fv[2])) - mesh.point(mesh.vertex_handle(fv[1]));
-			e12 = e12.normalize();
-			e13 = e13.normalize();
-			e23 = e23.normalize();
-			double angle1 = acos(e12 | e13);
-			double angle2 = acos(-e12 | e23);
-			double angle3 = acos(e13 | e23);
-			if (angle1 <= 0.5 * M_PI)
-				center1 = toPoint(ComputeTriangleCenter(Eigen::Vector3d(mesh.normal(fh).data()), Eigen::Vector3d(p1.data()), Eigen::Vector3d(p2.data()), Eigen::Vector3d(p3.data())));
-			else
-				center1 = (p2 + p3)/ 2;
-			if (angle2 <= 0.5 * M_PI)
-				center2 = toPoint(ComputeTriangleCenter(Eigen::Vector3d(mesh.normal(fh).data()), Eigen::Vector3d(p2.data()), Eigen::Vector3d(p3.data()), Eigen::Vector3d(p1.data())));
-			else
-				center2 = (p1 + p3) / 2;
-			if (angle3 <= 0.5 * M_PI)
-				center3 = toPoint(ComputeTriangleCenter(Eigen::Vector3d(mesh.normal(fh).data()), Eigen::Vector3d(p3.data()), Eigen::Vector3d(p1.data()), Eigen::Vector3d(p2.data())));
-			else
-				center3 = (p2 + p1) / 2;
-			break;
-		}
-		default:
-			break;
-		}
-		LAR[fv[0]] += ComputeArea(Eigen::Vector3d(p1.data()), Eigen::Vector3d(m12.data()), Eigen::Vector3d(center1.data())) + ComputeArea(Eigen::Vector3d(p1.data()), Eigen::Vector3d(m13.data()), Eigen::Vector3d(center1.data()));
-		LAR[fv[1]] += ComputeArea(Eigen::Vector3d(p2.data()), Eigen::Vector3d(m12.data()), Eigen::Vector3d(center2.data())) + ComputeArea(Eigen::Vector3d(p2.data()), Eigen::Vector3d(m23.data()), Eigen::Vector3d(center2.data()));
-		LAR[fv[2]] += ComputeArea(Eigen::Vector3d(p3.data()), Eigen::Vector3d(m13.data()), Eigen::Vector3d(center3.data())) + ComputeArea(Eigen::Vector3d(p3.data()), Eigen::Vector3d(m23.data()), Eigen::Vector3d(center3.data()));
-	}
-}
-
-void Mesh::ComputeLaplacian(int kind)
-{
-	//使用Openmesh的函数功能来填装Laplacian
-	std::vector<Eigen::Triplet<double>> L;
+	if (Laplacian_latest)
+		return;
 	int nv = mesh.n_vertices();
 	Laplacian.resize(nv, nv);
-
-	if (kind == 0)
+	std::vector<Eigen::Triplet<double>> L;
+	if (Laplacian_kind == 0)//uniform-laplace
 	{
 		for (T::VertexHandle vh : mesh.vertices())
 		{
@@ -311,20 +261,15 @@ void Mesh::ComputeLaplacian(int kind)
 			L.push_back(Eigen::Triplet<double>(idx, idx, -1));
 			for (auto vv : mesh.vv_range(vh))
 			{
-				L.push_back(Eigen::Triplet<double>(idx, vv.idx(),1.0/n_range));
+				L.push_back(Eigen::Triplet<double>(idx, vv.idx(), 1.0 / n_range));
 			}
 		}
 	}
-	else if (kind == 1)
+	else if (Laplacian_kind == 1)//contangent-laplace
 	{
-		if (LAR.rows() == 0)
-		{
-			std::cerr << "尚未求取顶点平均区域" << std::endl;
-			return;
-		}
+		ComputeLAR();
 		for (T::VertexHandle vh : mesh.vertices())
-			//Laplacian(vh.idx(), vh.idx()) = -1 / (2 * LAR(vh.idx()));
-			L.push_back(Eigen::Triplet<double>(vh.idx(), vh.idx(), -1/ (2 * LAR(vh.idx()))));
+			L.push_back(Eigen::Triplet<double>(vh.idx(), vh.idx(), -1 / (2 * LAR(vh.idx()))));
 		for (T::FaceHandle fh : mesh.faces())
 		{
 			int idx = fh.idx();
@@ -342,19 +287,12 @@ void Mesh::ComputeLaplacian(int kind)
 			double angle1 = acos(e12 | e13);
 			double angle2 = acos(-e12 | e23);
 			double angle3 = acos(e13 | e23);
-//			Laplacian(fv[0], fv[1]) +=1/tan (angle3) / (2 * LAR[fv[0]]);
-//			Laplacian(fv[0], fv[0]) -= 1/tan(angle3) / (2 * LAR[fv[0]]);
-//			Laplacian(fv[1], fv[0]) += 1/tan(angle3) / (2 * LAR[fv[1]]);
-	//		Laplacian(fv[1], fv[1]) -= 1/tan(angle3) / (2 * LAR[fv[1]]);
+
 			L.push_back(Eigen::Triplet<double>(fv[0], fv[1], 1 / tan(angle3) / (2 * LAR[fv[0]])));
 			L.push_back(Eigen::Triplet<double>(fv[0], fv[0], -1 / tan(angle3) / (2 * LAR[fv[0]])));
 			L.push_back(Eigen::Triplet<double>(fv[1], fv[0], 1 / tan(angle3) / (2 * LAR[fv[1]])));
 			L.push_back(Eigen::Triplet<double>(fv[1], fv[1], -1 / tan(angle3) / (2 * LAR[fv[1]])));
 
-		//	Laplacian(fv[0], fv[2]) += 1/tan(angle2) / (2 * LAR[fv[0]]);
-		//	Laplacian(fv[0], fv[0]) -= 1/tan(angle2) / (2 * LAR[fv[0]]);
-		//	Laplacian(fv[2], fv[0]) += 1/tan(angle2) / (2 * LAR[fv[2]]);
-		//	Laplacian(fv[2], fv[2]) -= 1/tan(angle2) / (2 * LAR[fv[2]]);
 			L.push_back(Eigen::Triplet<double>(fv[0], fv[2], 1 / tan(angle2) / (2 * LAR[fv[0]])));
 			L.push_back(Eigen::Triplet<double>(fv[0], fv[0], -1 / tan(angle2) / (2 * LAR[fv[0]])));
 			L.push_back(Eigen::Triplet<double>(fv[2], fv[0], 1 / tan(angle2) / (2 * LAR[fv[2]])));
@@ -367,6 +305,15 @@ void Mesh::ComputeLaplacian(int kind)
 			L.push_back(Eigen::Triplet<double>(fv[2], fv[2], -1 / tan(angle1) / (2 * LAR[fv[2]])));
 		}
 	}
-		Laplacian.setFromTriplets(L.begin(), L.end());
-		Laplacian.makeCompressed();
+	Laplacian.setFromTriplets(L.begin(), L.end());
+	Laplacian.makeCompressed();
+	Laplacian_latest = true;
+}
+
+void Mesh::ComputeLaplacian(int kind)
+{
+	Laplacian_latest = false;
+	Laplacian_kind = kind;
+	ComputeLAR();
+	ComputeLaplacian();
 }
