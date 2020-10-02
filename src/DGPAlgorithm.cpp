@@ -1,10 +1,10 @@
 #include "DGPAlgorithm.h"
 #include <fstream>
 
-void DGPAlgorithm::ComputeCurvature(int localaverageregionKind, int curvatureKind, MyMesh& mesh, std::vector<double>& curvature)
+void DGPAlgorithm::ComputeCurvature(int LARKind, int CurvatureKind, MyMesh& mesh, std::vector<double>& curvature)
 {
-	mesh.SetLARKind(localaverageregionKind);
-	mesh.SetCurvatureKind(curvatureKind);
+	mesh.SetLARKind(MyMesh::LAR_KIND(LARKind));
+	mesh.SetCurvatureKind(MyMesh::CURVATURE_KIND(CurvatureKind));
 	mesh.ComputeCurvature();
 	mesh.getVCurvature(curvature);
 }
@@ -21,6 +21,6 @@ void DGPAlgorithm::DoFairing(MyMesh& mesh, int power)
 
 void DGPAlgorithm::DoSmoothing(MyMesh& mesh, int laplacekind,int integrationkind)
 {
-	mesh.SetLaplacianKind(laplacekind);
-	mesh.Smoothing(integrationkind);
+//	mesh.SetLaplacianKind(laplacekind);
+//	mesh.Smoothing(integrationkind);
 }

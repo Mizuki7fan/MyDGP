@@ -10,6 +10,11 @@ class MyMesh
 {
 public:
 	MyMesh();
+	enum PROPERTY { P_LAR, P_VERTICES, P_V_NORMAL, P_F_NORMAL, P_CURVATURE, P_LAPLACIAN, P_M_VOLUME };
+	enum LAR_KIND { BARYCENTRIC, VORONOI, MIXED, LAR_ND};//定义、记录LAR的类型
+	enum V_NORMAL_KIND { V_NORMAL_ND };
+	enum CURVATURE_KIND { MEAN, ABSOLUTEMEAN, GAUSSIAN, CURVATURE_ND};
+	enum LAPLACIAN_KIND { UNIFORM, CONTANGENT, LAPLACIAN_ND};
 private:
 
 public://直接通过网格读取进行的操作，以及不同网格类实现有很大不同的操作
@@ -58,36 +63,37 @@ public://主要在父类cpp中实现的内容
 
 	void getVCurvature(std::vector<double>& c);
 
-	void SetLaplacianKind(int i);// { Laplacian_kind = i; };
-	void SetLARKind(int i);
-	void SetCurvatureKind(int i);// { Curvature_kind = i; Curvature_latest = false; };//需要重置
+	void CheckProperty(PROPERTY p);
+	void SetLaplacianKind(LAPLACIAN_KIND k) {this->Laplacian_kind = k; };
+	void SetLARKind(LAR_KIND k) { this->LAR_kind = k; };
+	void SetCurvatureKind(CURVATURE_KIND k) {this->Curvature_kind = k; };//需要重置
 
 	void eigen_output();
 protected:
+
 	Eigen::VectorXd LAR; //局部平均区域的面积
 	bool LAR_latest = false;
+	LAR_KIND LAR_kind = LAR_KIND::LAR_ND;
 
 	Eigen::MatrixXd Vertices;//网格顶点Eigen::Matrix3d FaceNormal;//面法向，唯一
 	bool Vertices_latest = false;
 	
-	Eigen::MatrixXd VertexNormal;//顶点法向，多种加权方式
+	Eigen::MatrixXd VertexNormal;//顶点法向，有三种加权方式，不过这个暂时不管(因为Openmesh提供了默认的)
 	bool VertexNormal_latest = false;
-	
+ 	
 	Eigen::MatrixXd FaceNormal;
 	bool FaceNormal_latest = false;
 	
 	Eigen::VectorXd Curvature;//顶点的曲率
 	bool Curvature_latest = false;
+	CURVATURE_KIND Curvature_kind = CURVATURE_KIND::CURVATURE_ND;
 
 	Eigen::SparseMatrix<double> Laplacian;
+	LAPLACIAN_KIND Laplacian_kind = LAPLACIAN_KIND::LAPLACIAN_ND;
 	bool Laplacian_latest = false;
 
 	double MeshVolume;
 	bool MeshVolume_latest = false;
-
-	int Laplacian_kind = -1;
-	int LAR_kind = -1;
-	int Curvature_kind = -1;
 
 //	LinSysSolver* solver;
 };

@@ -247,10 +247,13 @@ void Mesh::ComputeLaplacian()
 {
 	if (Laplacian_latest)
 		return;
+	CheckProperty(PROPERTY::P_LAPLACIAN);
 	int nv = mesh.n_vertices();
 	Laplacian.resize(nv, nv);
 	std::vector<Eigen::Triplet<double>> L;
-	if (Laplacian_kind == 0)//uniform-laplace
+	switch (Laplacian_kind)
+	{
+	case MyMesh::UNIFORM:
 	{
 		for (T::VertexHandle vh : mesh.vertices())
 		{
@@ -264,8 +267,9 @@ void Mesh::ComputeLaplacian()
 				L.push_back(Eigen::Triplet<double>(idx, vv.idx(), 1.0 / n_range));
 			}
 		}
+		break;
 	}
-	else if (Laplacian_kind == 1)//contangent-laplace
+	case MyMesh::CONTANGENT:
 	{
 		ComputeLAR();
 		for (T::VertexHandle vh : mesh.vertices())
@@ -304,6 +308,12 @@ void Mesh::ComputeLaplacian()
 			L.push_back(Eigen::Triplet<double>(fv[2], fv[1], 1 / tan(angle1) / (2 * LAR[fv[2]])));
 			L.push_back(Eigen::Triplet<double>(fv[2], fv[2], -1 / tan(angle1) / (2 * LAR[fv[2]])));
 		}
+		break;
+	}
+	case MyMesh::LAPLACIAN_ND:
+		break;
+	default:
+		break;
 	}
 	Laplacian.setFromTriplets(L.begin(), L.end());
 	Laplacian.makeCompressed();
@@ -312,8 +322,8 @@ void Mesh::ComputeLaplacian()
 
 void Mesh::ComputeLaplacian(int kind)
 {
-	Laplacian_latest = false;
-	Laplacian_kind = kind;
+//	Laplacian_latest = false;
+//	Laplacian_kind = kind;
 	ComputeLAR();
 	ComputeLaplacian();
 }

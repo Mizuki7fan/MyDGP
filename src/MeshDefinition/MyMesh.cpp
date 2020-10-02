@@ -88,10 +88,11 @@ void MyMesh::ComputeCurvature()
 {
 	if (Curvature_latest)//如果曲率没有变动则直接返回
 		return;
+	CheckProperty(PROPERTY::P_CURVATURE);
 	Curvature.resize(NVertices());
 	switch (Curvature_kind)
 	{
-	case 0://平均曲率
+	case MEAN://平均曲率
 	{
 		ComputeLaplacian(1);//必须是Cotangent的laplace
 		LoadVertex();
@@ -246,47 +247,67 @@ void MyMesh::getVCurvature(std::vector<double>& c)
 	}
 }
 
-void MyMesh::SetLaplacianKind(int i)
+void MyMesh::CheckProperty(PROPERTY p)
 {
-	"0-uniform，1-cotangent";
-	std::cout << "修改了Laplacian的类型，当前为：" << Laplacian_kind << "，修改为：" << i << std::endl;
-	if (Laplacian_kind != i)
+	switch (p)
 	{
-		Laplacian_kind = i;
-		Laplacian_latest = false;
+	case MyMesh::P_LAR:
+		break;
+	case MyMesh::P_VERTICES:
+		break;
+	case MyMesh::P_V_NORMAL:
+		break;
+	case MyMesh::P_F_NORMAL:
+		break;
+	case MyMesh::P_CURVATURE:
+	{
+		switch (Curvature_kind)
+		{
+		case MyMesh::MEAN:
+		{//在求平均曲率的时候，如果laplacian不是contangent的，那么就需要重新求laplacian
+			if (Laplacian_kind != LAPLACIAN_KIND::CONTANGENT)
+			{
+				Laplacian_latest = false;
+				Laplacian_kind = LAPLACIAN_KIND::CONTANGENT;
+				ComputeLaplacian();
+			}
+		}
+			break;
+		case MyMesh::ABSOLUTEMEAN:
+			break;
+		case MyMesh::GAUSSIAN:
+			break;
+		case MyMesh::CURVATURE_ND:
+			break;
+		default:
+			break;
+		}
 	}
-}
+		break;
+	case MyMesh::P_LAPLACIAN:
+	{//检测laplacian
+		switch (Laplacian_kind)
+		{
+		case MyMesh::UNIFORM:
+			break;
+		case MyMesh::CONTANGENT:
+		{//在算cotangent拉普拉斯的时候，需要检测
 
-void MyMesh::SetLARKind(int i)
-{
-	"0-Barycentric，1-Voronoi，2-Mixed";
-	std::cout << "修改了局部平均区域的类型，当前为：" << LAR_kind << "，修改为：" << i << std::endl;
-	if (LAR_kind!=i)
-	{ 
-		LAR_kind = i;
-		LAR_latest = false; 
-		Curvature_latest = false;//曲率需要同步被修改
-		if (LAR_kind != 0)
-		{//如果当前的LAR是voronoi或者mixed，那么Laplacian需要同步更新
-			Laplacian_latest = false;
+		}
+			break;
+		case MyMesh::LAPLACIAN_ND:
+			break;
+		default:
+			break;
 		}
 	}
-}
-void MyMesh::SetCurvatureKind(int i)
-{
-	"0-Mean，1-AbsoluteMean,2-Gaussian";
-	std::cout << "修改了曲率的的类型，当前为：" << Curvature_kind << "，修改为：" << i << std::endl;
-	if (Curvature_kind != i)
-	{
-		Curvature_kind = i;
-		Curvature_latest = false;
-		if (LAR_kind != 0)
-		{//如果当前的LAR是voronoi或者mixed，那么Laplacian需要同步更新
-			Laplacian_latest = false;
-		}
+		break;
+	case MyMesh::P_M_VOLUME:
+		break;
+	default:
+		break;
 	}
 }
-;
 
 void MyMesh::eigen_output()
 {
