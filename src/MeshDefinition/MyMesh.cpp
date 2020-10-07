@@ -6,10 +6,11 @@
 //#endif // LINSYSSOLVER_USE_EIGEN
 
 void MyMesh::ComputeLAR()//计算顶点的局部平均区域
-{
+{	
+	if (!Vertices_latest)
+		LoadVertex();//如果顶点位置不是最新的，那么要更新顶点
 	if (LAR_latest)
 		return;
-
 	LAR.resize(NVertices());	
 	LAR.setZero();
 	for (int i = 0; i < NFaces(); i++)
@@ -49,6 +50,8 @@ void MyMesh::ComputeLAR()//计算顶点的局部平均区域
 		LAR[v3] += (ComputeTriangleArea(p3, m13, center) + ComputeTriangleArea(p3, m23, center));
 	}
 	LAR_latest = true;
+	Curvature_latest = false;
+	Laplacian_latest = false;
 }
 
 Eigen::Vector3d MyMesh::ComputeTriangleCirumcenter(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3)
@@ -86,17 +89,23 @@ double MyMesh::ComputeTriangleArea(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eig
 
 void MyMesh::ComputeCurvature()
 {
-	if (Curvature_latest)//如果曲率没有变动则直接返回
-		return;
-	CheckProperty(PROPERTY::P_CURVATURE);
-	Curvature.resize(NVertices());
 	switch (Curvature_kind)
 	{
 	case MEAN://平均曲率
 	{
-		ComputeLaplacian(1);//必须是Cotangent的laplace
-		LoadVertex();
-		LoadVerticeNormal();
+		if (Laplacian_kind != LAPLACIAN_KIND::CONTANGENT || !Laplacian_latest)
+		{
+			Laplacian_kind = LAPLACIAN_KIND::CONTANGENT;
+			Laplacian_latest = false;
+			ComputeLaplacian();
+		}
+		if (!Vertices_latest)
+			LoadVertex();
+		if (!VertexNormal_latest)
+			LoadVerticeNormal();//需要知道点法向以确定曲率值的正负
+		if (Curvature_latest)
+			return;
+		Curvature.resize(NVertices());
 		Eigen::MatrixXd left = Laplacian.toDense() * Vertices;		
 		for (int i = 0; i < NVertices(); i++)
 		{
@@ -107,23 +116,39 @@ void MyMesh::ComputeCurvature()
 			else
 				Curvature[i] = -0.5 * v_row.norm();
 		}
+		Curvature_kind = CURVATURE_KIND::MEAN;
+		Curvature_latest = true;
 		break;
 	}
-	case 1:
+	case ABSOLUTEMEAN://绝对平均曲率
 	{
-		ComputeLaplacian(1);//必须是Cotangent的laplace
-		LoadVertex();
+		if (Laplacian_kind != LAPLACIAN_KIND::CONTANGENT || !Laplacian_latest)
+		{
+			Laplacian_kind = LAPLACIAN_KIND::CONTANGENT;
+			Laplacian_latest = false;
+			ComputeLaplacian();
+		}
+		if (!Vertices_latest)
+			LoadVertex();
+		if (Curvature_latest)
+			return;
+		Curvature.resize(NVertices());
 		Eigen::MatrixXd left = Laplacian.toDense() * Vertices;
 		for (int i = 0; i < NVertices(); i++)
 		{
 			Eigen::Vector3d v_row = Eigen::Vector3d(left(i, 0), left(i, 1), left(i, 2));
 				Curvature[i] = abs(0.5 * v_row.norm());
 		}
+		Curvature_kind = CURVATURE_KIND::ABSOLUTEMEAN;
+		Curvature_latest = true;
 		break;
 	}
-	case 2:
+	case CURVATURE_KIND::GAUSSIAN:
 	{
-		ComputeLAR();
+		if (!LAR_latest)
+			ComputeLAR();
+		if (Curvature_latest)
+			return;
 		std::vector<double> v_angledefect(NVertices(), 2 * M_PI);
 		for (int i = 0; i < NFaces(); i++)
 		{
@@ -145,18 +170,6 @@ void MyMesh::ComputeCurvature()
 	Curvature_latest = true;//仅有曲率被修改
 	eigen_output();
 }
-
-void MyMesh::VertexModified()
-{
-	LAR_latest = false;
-	Vertices_latest = false;
-	VertexNormal_latest = false;
-	FaceNormal_latest = false;
-	Curvature_latest = false;
-	if (Laplacian_kind == 1)//如果Laplace是cotangent的，那么也要更新
-		Laplacian_latest = false;
-}
-
 
 void MyMesh::MakeNoise()
 {
@@ -180,7 +193,7 @@ void MyMesh::MakeNoise()
 		Vertices(i, 1) += 0.5 * n.y() / n.norm() * e_length;
 		Vertices(i, 2) += 0.5 * n.z() / n.norm() * e_length;
 	}
-	VertexModified();
+	SetVerticesNewCoord();
 }
 
 void MyMesh::Fairing(int power)
@@ -207,7 +220,7 @@ void MyMesh::Fairing(int power)
 			b(i, 2) = Vertices(i, 2);
 		}
 	}
-	Eigen::SparseMatrix<double> LL = L.sparseView();
+	Eigen::SparseMatrix<double> LL =L.sparseView();
 	//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	solver.compute(LL);
@@ -218,23 +231,154 @@ void MyMesh::Fairing(int power)
 		Eigen::Vector3d value(res(i, 0), res(i, 1), res(i, 2));
 		SetVertexNewCoord(i, value);
 	}
-	VertexModified();
 }
 
-void MyMesh::Smoothing(int integrationkind)
-{
-	ComputeLaplacian();//更新拉普拉斯
-	LoadVertex();
-	double steplength = 0.5;
-	Eigen::MatrixXd delta_Vertex = Laplacian.toDense() * Vertices;
-	for (int i = 0; i < NVertices(); i++)
+void MyMesh::Smoothing()
+{	
+	if (!Vertices_latest)
+		LoadVertex();
+	if (!Laplacian_latest)
+		ComputeLaplacian();//更新拉普拉斯
+	double ori_vol = ComputeMeshVolume();
+	switch (Euler_integration_kind)
 	{
-		Vertices(i, 0) = Vertices(i, 0) + steplength * delta_Vertex(i, 0);
-		Vertices(i, 1) = Vertices(i, 1) + steplength * delta_Vertex(i, 1);
-		Vertices(i, 2) = Vertices(i, 2) + steplength * delta_Vertex(i, 2);
+	case MyMesh::EXPLICIT://显式
+	{
+		double steplength = 0.5;
+		Eigen::MatrixXd delta_Vertex = Laplacian.toDense() * Vertices;
+		for (int i = 0; i < NVertices(); i++)
+		{
+			Vertices(i, 0) = Vertices(i, 0) + steplength * delta_Vertex(i, 0);
+			Vertices(i, 1) = Vertices(i, 1) + steplength * delta_Vertex(i, 1);
+			Vertices(i, 2) = Vertices(i, 2) + steplength * delta_Vertex(i, 2);
+		}
+	}
+		break;
+	case MyMesh::IMPLICIT://隐式
+	{
+		double steplength = 0.5;
+		int nv = NVertices();
+		Eigen::MatrixXd I = Eigen::MatrixXd::Identity(nv,nv);//单位矩阵
+		Eigen::MatrixXd A=steplength* Laplacian.toDense();
+		Eigen::SparseMatrix<double> LL = (I-A).sparseView();
+		Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+		solver.compute(LL);
+		Eigen::MatrixXd res = solver.solve(Vertices);
+		for (int i = 0; i < NVertices(); i++)
+		{
+			Vertices(i, 0) = Vertices(i, 0) + res(i, 0);
+			Vertices(i, 1) = Vertices(i, 1) + res(i, 1);
+			Vertices(i, 2) = Vertices(i, 2) + res(i, 2);
+		}
+		SetVerticesNewCoord();
+		double new_vol = ComputeMeshVolume();
+		double scale = pow(new_vol / ori_vol, 1.0 / 3);
+		for (int i = 0; i < NVertices(); i++)
+		{
+			Vertices(i, 0) = Vertices(i, 0)/scale;
+			Vertices(i, 1) = Vertices(i, 1) /scale;
+			Vertices(i, 2) = Vertices(i, 2) /scale;
+		}
+	}
+		break;
+	case MyMesh::EULER_INTEGRATION_ND:
+		break;
+	default:
+		break;
 	}
 	SetVerticesNewCoord();
-	VertexModified();
+}
+
+void MyMesh::BilateralDenoising(double stdevs,double stdevr)
+{
+	if (!Vertices_latest)
+		LoadVertex();
+	if (!VertexNormal_latest)
+		LoadVerticeNormal();
+	Eigen::VectorXd D;
+	D.resize(NVertices());//顶点要沿着其法向进行偏移的距离
+	for (int i = 0; i < NVertices(); i++)
+	{//遍历所有顶点，算这个顶点的法向平面
+		Eigen::Vector3d N = getVertexNormal(i);
+		Eigen::Vector3d V = getVertexCoord(i);
+		//找这个点的邻域点
+		std::vector<int> n_nei;
+		getVerticesNeighbour(i, n_nei);
+		double d_total = 0;
+		double Kv = 0;
+		for (int j = 0; j < n_nei.size(); j++)
+		{
+			Eigen::Vector3d Q = getVertexCoord(n_nei[j]);
+			double t = (Q - V).norm();
+			double d = (N.dot(Q - V)) / N.norm();
+			double Ws = exp(-t * t / (2 * stdevs));
+			double Wr = exp(-d * d / (2 * stdevr));
+			d_total += Ws * Wr * d;
+			Kv += Ws * Wr;
+		}
+		D[i] = d_total / Kv;
+	}
+	for (int i = 0; i < NVertices(); i++)
+	{
+		Vertices(i) = Vertices(i) + VertexNormal(i) * D[i];
+	}
+	SetVerticesNewCoord();
+}
+
+void MyMesh::BilateralNormalFiltering(double stdevs, double stdevr)
+{
+	if (!Vertices_latest)
+		LoadVertex();
+	if (!FaceNormal_latest)
+		LoadFaceNormal();
+	Eigen::MatrixXd NewNormal(NFaces(),3);
+//	NewNormal.setZero();
+	for (int i = 0; i < NFaces(); i++)
+	{//对所有边进行遍历
+		double newNormalX = 0, newNormalY = 0, newNormalZ = 0;//新法向的三个值
+		std::vector<int> f_nei;
+		//算面的中心点
+		int vi1, vi2, vi3;
+		getFaceVertices(i, vi1, vi2, vi3);
+		Eigen::Vector3d fi_center = (getPoint(vi1) + getPoint(vi2) + getPoint(vi3)) / 3;
+		Eigen::Vector3d i_normal = getFaceNormal(i);
+		getFaceNeighbour(i, f_nei);
+		//std::cout << f_nei.size() << std::endl;
+		double Kp = 0;
+		for (int j = 0; j < f_nei.size(); j++)
+		{
+			int vj1, vj2, vj3;
+			getFaceVertices(f_nei[j], vj1, vj2, vj3);//获取面的三个点
+			Eigen::Vector3d p1 = getPoint(vj1), p2 = getPoint(vj2), p3 = getPoint(vj3);
+			Eigen::Vector3d fj_center = (p1 + p2 + p3) / 3;//获取面的中心
+			double delta_center = (fj_center - fi_center).norm();//中心之间的距离
+			Eigen::Vector3d j_normal = getFaceNormal(f_nei[j]);//获取面的法向
+			double delta_normal = (j_normal - i_normal).norm();//获取法向的差异
+			double Aj = ComputeTriangleArea(p1, p2, p3);
+			Kp += Aj;
+			double Ws = exp(-delta_center * delta_center / (2 * stdevs));
+			double Wr = exp(-delta_normal * delta_normal / (2 * stdevr));
+			newNormalX += Aj * Ws * Wr * j_normal.x();
+			newNormalY += Aj * Ws * Wr * j_normal.y();
+			newNormalZ += Aj * Ws * Wr * j_normal.z();
+		}
+		newNormalX /= Kp;
+		newNormalY /= Kp;
+		newNormalZ /= Kp;
+		double norm = sqrt(newNormalX * newNormalX + newNormalY * newNormalY + newNormalZ * newNormalZ);
+		NewNormal(i, 0) = newNormalX/norm;
+		NewNormal(i, 1) = newNormalY/norm;
+		NewNormal(i, 2) = newNormalZ/norm;
+	}
+	std::ofstream ori_normal("output//ori_normal.txt");
+	ori_normal << FaceNormal;
+	ori_normal.close();
+	std::ofstream new_normal("output//new_normal.txt");
+	new_normal << NewNormal;
+	new_normal.close();
+	FaceNormal = NewNormal;
+	SetFacesNewNormalCoord();
+
 }
 
 void MyMesh::getVCurvature(std::vector<double>& c)
@@ -247,65 +391,40 @@ void MyMesh::getVCurvature(std::vector<double>& c)
 	}
 }
 
-void MyMesh::CheckProperty(PROPERTY p)
+void MyMesh::SetLaplacianKind(LAPLACIAN_KIND k)
 {
-	switch (p)
+	if (k != Laplacian_kind)
 	{
-	case MyMesh::P_LAR:
-		break;
-	case MyMesh::P_VERTICES:
-		break;
-	case MyMesh::P_V_NORMAL:
-		break;
-	case MyMesh::P_F_NORMAL:
-		break;
-	case MyMesh::P_CURVATURE:
-	{
-		switch (Curvature_kind)
-		{
-		case MyMesh::MEAN:
-		{//在求平均曲率的时候，如果laplacian不是contangent的，那么就需要重新求laplacian
-			if (Laplacian_kind != LAPLACIAN_KIND::CONTANGENT)
-			{
-				Laplacian_latest = false;
-				Laplacian_kind = LAPLACIAN_KIND::CONTANGENT;
-				ComputeLaplacian();
-			}
-		}
-			break;
-		case MyMesh::ABSOLUTEMEAN:
-			break;
-		case MyMesh::GAUSSIAN:
-			break;
-		case MyMesh::CURVATURE_ND:
-			break;
-		default:
-			break;
-		}
+		Laplacian_kind = k;
+		Laplacian_latest = false;
 	}
-		break;
-	case MyMesh::P_LAPLACIAN:
-	{//检测laplacian
-		switch (Laplacian_kind)
-		{
-		case MyMesh::UNIFORM:
-			break;
-		case MyMesh::CONTANGENT:
-		{//在算cotangent拉普拉斯的时候，需要检测
+}
 
-		}
-			break;
-		case MyMesh::LAPLACIAN_ND:
-			break;
-		default:
-			break;
-		}
+void MyMesh::SetLARKind(LAR_KIND k)
+{
+	if (k != LAR_kind)
+	{
+		LAR_kind = k;
+		LAR_latest = false;
+		Laplacian_latest = false;//因为修改后可能会影响laplace的计算
 	}
-		break;
-	case MyMesh::P_M_VOLUME:
-		break;
-	default:
-		break;
+}
+
+void MyMesh::SetCurvatureKind(CURVATURE_KIND k)
+{
+	if (k != Curvature_kind)
+	{
+		Curvature_kind = k;
+		Curvature_latest = false;
+	}
+}
+
+void MyMesh::SetEulerIntegrationKind(EULER_INTEGRATION_KIND k)
+{
+	if (k != Euler_integration_kind)
+	{
+		Euler_integration_kind = k;
+		Euler_integration_latest = false;
 	}
 }
 

@@ -33,8 +33,8 @@
 * [x] 求取面积
 
 ## 1.2 Normal Vector 法向
-* [ ] 展示面法向信息
-* [ ] 展示多种方式定义的点法向信息 
+* [ ] **展示**面法向信息
+* [ ] **展示**多种方式定义的点法向信息 
  
 ## 1.3 Barycentric coordinate 重心坐标
 
@@ -62,3 +62,13 @@
 * uniform和cotangent
 * 如何快速构建uniform？
 * 显式/隐式的欧拉积分
+
+## Fairing
+* 固定边界情况，对laplacian进行修正
+* 兼容两种laplacian
+* 兼容laplacian的次方
+
+## Smoothing
+
+## BilateralDenoising
+现在子类里面实现。再确保父类里面没问题

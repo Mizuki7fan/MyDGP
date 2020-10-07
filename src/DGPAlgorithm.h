@@ -10,9 +10,11 @@ public:
 	//制造网格噪音
 	static void MakeNoise(MyMesh& mesh);
 	//进行Fairing操作
-	static void DoFairing(MyMesh& mesh, int power);
+	static void DoFairing(MyMesh& mesh, int power,int lap_kind);
 	//进行Smoothing操作
 	static void DoSmoothing(MyMesh& mesh, int laplacekind,int integrationkind);
+	static void DoBilateralDenoising(MyMesh& mesh, double stdevs,double stdevr);
+	static void DoBilateralNormalFiltering(MyMesh& mesh, double stdevs, double stdevr);
 
 private:
 

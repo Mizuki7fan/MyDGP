@@ -94,50 +94,86 @@ Smoothing::Smoothing()
 {
 	lName->setText(QStringLiteral("==  SMOOTHING  =="));
 	pbMakeNoise = new QPushButton(QStringLiteral("制造噪声"));
-	QLabel* lFairingPower=new QLabel(QStringLiteral("Fairing的幂次:"));
-	leFairingPower = new QLineEdit();
-	leFairingPower->setText("1");
-	pbFairing = new QPushButton(QStringLiteral("做Fairing"));
+
 	QLabel* lLaplacianKind = new QLabel(QStringLiteral("Laplacian类型:"));
 	QStringList LaplacianKind;
 	LaplacianKind << "Uniform" << "Cotangent";
 	qbLaplacianKind = new QComboBox();
 	qbLaplacianKind->addItems(LaplacianKind);
-	QFrame* line = new QFrame(), *line2 = new QFrame();
-	line->setFrameShape(QFrame::HLine);
-	line->setFrameShadow(QFrame::Sunken);
-	line2->setFrameShape(QFrame::HLine);
-	line2->setFrameShadow(QFrame::Sunken);
+	
+	QLabel* lFairingPower=new QLabel(QStringLiteral("Fairing的幂次:"));
+	leFairingPower = new QLineEdit();
+	leFairingPower->setText("1");
+	leFairingPower->setEnabled(false);
+	
+	pbFairing = new QPushButton(QStringLiteral("做Fairing"));
 	QLabel* lIntegrationKind = new QLabel(QStringLiteral("欧拉积分类型:"));
 	QStringList IntegrationKind;
-	IntegrationKind << "implicit" << "explicit";
+	IntegrationKind << "Explicit" << "Implicit";
 	qbIntegrationKind = new QComboBox();
 	qbIntegrationKind->addItems(IntegrationKind);
-	QLabel* lSmoothObject = new QLabel(QStringLiteral("对...进行Smooth"));
-	QStringList SmoothObject;
-	SmoothObject<< QStringLiteral("顶点位置") << QStringLiteral("曲率");
-	qbSmoothObject=new QComboBox();
-	qbSmoothObject->addItems(SmoothObject);
+	
+	QLabel* lLaplacianSmoothObject = new QLabel(QStringLiteral("对...进行Smooth"));
+	QStringList LaplacianSmoothObject;
+	LaplacianSmoothObject<< QStringLiteral("顶点位置") << QStringLiteral("曲率");
+	qbLaplacianSmoothObject =new QComboBox();
+	qbLaplacianSmoothObject->addItems(LaplacianSmoothObject);
+	qbLaplacianSmoothObject->setEnabled(false);
 
-	pbSmoothing = new QPushButton(QStringLiteral("做Smoothing"));
+	QLabel* lDenoisingStds = new QLabel(QStringLiteral("标准差σ_s:"));
+	QDoubleSpinBox* sbDenoisingStds = new QDoubleSpinBox();
+	sbDenoisingStds->setMinimum(0.01);
+	sbDenoisingStds->setMaximum(10);
+	sbDenoisingStds->setSingleStep(0.1);//设置步长
+	sbDenoisingStds->setValue(1);
 
+	QLabel* lDenoisingStdr = new QLabel(QStringLiteral("标准差σ_r:"));
+	QDoubleSpinBox* sbDenoisingStdr = new QDoubleSpinBox();
+	sbDenoisingStdr->setMinimum(0.01);
+	sbDenoisingStdr->setMaximum(10);
+	sbDenoisingStdr->setSingleStep(0.1);//设置步长
+	sbDenoisingStdr->setValue(1);
 
-	QVBoxLayout* layout = new QVBoxLayout();
-	layout->addWidget(lName);
-	layout->addWidget(pbReturn);
-	layout->addWidget(pbMakeNoise);
-	layout->addWidget(line);
-	layout->addWidget(lFairingPower);
-	layout->addWidget(leFairingPower);
-	layout->addWidget(pbFairing);
-	layout->addWidget(line2);
-	layout->addWidget(lLaplacianKind);
-	layout->addWidget(qbLaplacianKind);
-	layout->addWidget(lIntegrationKind);
-	layout->addWidget(qbIntegrationKind);
-	layout->addWidget(lSmoothObject);
-	layout->addWidget(qbSmoothObject);
-	layout->addWidget(pbSmoothing);
+	std::vector<QFrame*> Seperator;
+	Seperator.resize(SeperatorCount);
+	for (int iter = 0; iter < SeperatorCount; iter++)
+	{
+		Seperator[iter] = new QFrame();
+		Seperator[iter]->setFrameShape(QFrame::HLine);
+		Seperator[iter]->setFrameShadow(QFrame::Sunken);
+	}
+	int seperator_idx = 0;
+
+	pbLaplacianSmoothing = new QPushButton(QStringLiteral("Laplacian Smoothing"));
+	pbBilateralMeshDenoising = new QPushButton(QStringLiteral("Bilateral Mesh Denoising"));
+	pbBiateralNormalFiltering = new QPushButton(QStringLiteral("Bilateral Normal Filtering"));
+	pbManifoldHarmonics = new QPushButton(QStringLiteral("Manifold Harmonics"));
+
+	QGridLayout* layout = new QGridLayout();
+	layout->addWidget(lName,0,0,1,2);
+	layout->addWidget(pbReturn,1,0,1,2);
+	layout->addWidget(pbMakeNoise,2,0,1,2);
+	layout->addWidget(lLaplacianKind,3,0,1,1);
+	layout->addWidget(qbLaplacianKind,3,1,1,1);
+	layout->addWidget(Seperator[seperator_idx],4,0,1,2); seperator_idx++;
+	layout->addWidget(lFairingPower,5,0,1,1);
+	layout->addWidget(leFairingPower,5,1,1,1);
+	layout->addWidget(pbFairing,6,0,1,2);
+	layout->addWidget(Seperator[seperator_idx],7,0,1,2); seperator_idx++;
+	layout->addWidget(lIntegrationKind,8,0,1,1);
+	layout->addWidget(qbIntegrationKind,8,1,1,1);
+	layout->addWidget(lLaplacianSmoothObject,9,0,1,1);
+	layout->addWidget(qbLaplacianSmoothObject,9,1,1,1);
+	layout->addWidget(pbLaplacianSmoothing,10,0,1,2);
+	layout->addWidget(Seperator[seperator_idx],11,0,1,2); seperator_idx++;
+	layout->addWidget(lDenoisingStds, 12, 0, 1, 1);
+	layout->addWidget(sbDenoisingStds, 12, 1, 1, 1);
+	layout->addWidget(lDenoisingStdr, 13, 0, 1, 1);
+	layout->addWidget(sbDenoisingStdr, 13, 1, 1, 1);
+	layout->addWidget(pbBilateralMeshDenoising, 14, 0, 1, 2);
+	layout->addWidget(pbBiateralNormalFiltering, 15, 0, 1, 2);
+	layout->addWidget(Seperator[seperator_idx], 16, 0, 1, 2); seperator_idx++;
+	layout->addWidget(pbManifoldHarmonics, 17, 0, 1, 2);
 
 	layout->setAlignment(Qt::AlignTop);
 	layout->setMargin(0);
@@ -146,12 +182,22 @@ Smoothing::Smoothing()
 	connect(pbMakeNoise, SIGNAL(clicked()), this, SIGNAL(MakeNoiseSignal()));
 	connect(pbFairing, &QPushButton::clicked, this, [=]() {
 		int fairingpower = leFairingPower->text().toInt();
-		this->DoFairingSignal(fairingpower);
+		int lapkind = qbLaplacianKind->currentIndex();
+		this->DoFairingSignal(fairingpower,lapkind);
 		});
-	connect(pbSmoothing, &QPushButton::clicked, this, [=]() {
+	connect(pbLaplacianSmoothing, &QPushButton::clicked, this, [=]() {
 		int laplacekind = qbLaplacianKind->currentIndex();
 		int integrationkind = qbIntegrationKind->currentIndex();
 		this->DoSmoothingSignal(laplacekind, integrationkind);
 		});
-
+	connect(pbBilateralMeshDenoising, &QPushButton::clicked, this, [=]() {
+		double stdevs = sbDenoisingStds->value();
+		double stdevr = sbDenoisingStdr->value();
+		this->DoBilateralDenoisingSignal(stdevs,stdevr);
+		});
+	connect(pbBiateralNormalFiltering, &QPushButton::clicked, this, [=]() {
+		double stdevs = sbDenoisingStds->value();
+		double stdevr = sbDenoisingStdr->value();
+		this->DoBilateralNormalFilteringSignal(stdevs, stdevr);
+		});
 }

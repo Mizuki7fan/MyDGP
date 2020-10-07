@@ -72,15 +72,24 @@ public:
 private:
 signals:
 	void MakeNoiseSignal();
-	void DoFairingSignal(int);
+	void DoFairingSignal(int,int);//Laplace自乘的次数、laplace的类型
 	void DoSmoothingSignal(int,int);
+	void DoBilateralDenoisingSignal(double,double);
+	void DoBilateralNormalFilteringSignal(double, double);
+
 private:
+	int SeperatorCount = 5;//面板中分隔符的数量
 	QPushButton* pbMakeNoise;
 	QPushButton* pbFairing;//做Fairing
-	QPushButton* pbSmoothing;
+	QPushButton* pbLaplacianSmoothing;//进行Laplacian平滑
+	QPushButton* pbBilateralMeshDenoising;//进行网格的双边滤波
+	QPushButton* pbBiateralNormalFiltering;//对面的法向进行滤波
+
+	QPushButton* pbManifoldHarmonics;//频谱的角度来进行处理
+
 	QLineEdit* leFairingPower;//Fairing的幂
 	QComboBox* qbLaplacianKind;//Laplacian的种类
 	QComboBox* qbIntegrationKind;//欧拉积分的类型
-	QComboBox* qbSmoothObject;
+	QComboBox* qbLaplacianSmoothObject;//对顶点位置还是曲率进行Laplacian的平滑
 
 };

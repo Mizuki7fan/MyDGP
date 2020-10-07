@@ -23,6 +23,11 @@ void Mesh::LoadVertex()
 		Vertices(a.idx(), 2) = p.data()[2];
 	}
 	Vertices_latest = true;
+	LAR_latest = false;
+	Laplacian_latest = false;
+	Curvature_latest = false;
+	MeshVolume_latest = false;
+	VertexNormal_latest = false;
 }
 
 bool Mesh::Write(std::string s)
@@ -55,6 +60,7 @@ void Mesh::LoadVerticeNormal(void)
 		VertexNormal(v.idx(), 2) = n.data()[2];
 	}
 	VertexNormal_latest = true;
+	Curvature_latest = false;
 }
 
 void Mesh::LoadFaceNormal(void)
@@ -69,6 +75,8 @@ void Mesh::LoadFaceNormal(void)
 		Vertices_latest = true;
 	}
 	FaceNormal.resize(mesh.n_faces(), 3);
+	mesh.update_face_normals();
+
 	for (auto f : mesh.faces())
 	{
 		OpenMesh::Vec3d n = mesh.normal(f);
@@ -144,6 +152,24 @@ Eigen::Vector3d Mesh::getFaceNormal(int i) const
 	OpenMesh::Vec3d n = mesh.normal(mesh.face_handle(i));
 	return Eigen::Vector3d(n.data()[0], n.data()[1], n.data()[2]);
 }
+void Mesh::getVerticesNeighbour(int i, std::vector<int>& nei) const
+{
+	nei.clear();
+	T::VertexHandle vh = mesh.vertex_handle(i);
+	for (auto vi:mesh.vv_range(vh))
+	{
+		nei.push_back(vi.idx());
+	}
+}
+void Mesh::getFaceNeighbour(int i, std::vector<int>& nei) const
+{
+	nei.clear();
+	T::FaceHandle fh = mesh.face_handle(i);
+	for (auto fi : mesh.fv_range(fh))
+	{
+		nei.push_back(fi.idx());
+	}
+}
 void Mesh::getEdgeVertices(int e, int& v1, int& v2) const
 {
 	T::HalfedgeHandle he = mesh.halfedge_handle(mesh.edge_handle(e),0);
@@ -201,6 +227,7 @@ void Mesh::SetVerticesNewCoord()
 		T::Point p(Vertices(vh.idx(), 0), Vertices(vh.idx(), 1), Vertices(vh.idx(), 2));
 		mesh.set_point(vh, p);
 	}
+	Vertices_latest = false;
 }
 
 void Mesh::SetVertexNewCoord(int i, Eigen::Vector3d p)
@@ -208,6 +235,18 @@ void Mesh::SetVertexNewCoord(int i, Eigen::Vector3d p)
 	T::VertexHandle vh = mesh.vertex_handle(i);
 	T::Point p1(p.x(),p.y(),p.z());
 	mesh.set_point(vh,p1);
+	Vertices_latest = false;}
+
+void Mesh::SetFacesNewNormalCoord()
+{
+	for (int i = 0; i < mesh.n_faces(); i++)
+	{
+		T::FaceHandle fh = mesh.face_handle(i);
+		T::Normal n(FaceNormal(i, 0), FaceNormal(i, 1), FaceNormal(i, 2));
+		mesh.set_normal(fh, n);
+//		mesh.set_normal()
+	}
+	FaceNormal_latest = false;
 }
 
 Eigen::Vector3d Mesh::getVertexCoord(int i)
@@ -245,9 +284,6 @@ double Mesh::ComputeMeshVolume()
 
 void Mesh::ComputeLaplacian()
 {
-	if (Laplacian_latest)
-		return;
-	CheckProperty(PROPERTY::P_LAPLACIAN);
 	int nv = mesh.n_vertices();
 	Laplacian.resize(nv, nv);
 	std::vector<Eigen::Triplet<double>> L;
@@ -270,8 +306,11 @@ void Mesh::ComputeLaplacian()
 		break;
 	}
 	case MyMesh::CONTANGENT:
-	{
-		ComputeLAR();
+	{//算cotangent的拉普拉斯，需要知道最新的LAR
+		if (!LAR_latest)
+			ComputeLAR();
+		if (Laplacian_latest)
+			return;
 		for (T::VertexHandle vh : mesh.vertices())
 			L.push_back(Eigen::Triplet<double>(vh.idx(), vh.idx(), -1 / (2 * LAR(vh.idx()))));
 		for (T::FaceHandle fh : mesh.faces())
@@ -318,12 +357,154 @@ void Mesh::ComputeLaplacian()
 	Laplacian.setFromTriplets(L.begin(), L.end());
 	Laplacian.makeCompressed();
 	Laplacian_latest = true;
+	Curvature_latest = false;
+	std::cout << "更新了Laplacian" << std::endl;
 }
 
-void Mesh::ComputeLaplacian(int kind)
+void Mesh::BilateralDenoising(double stdevs, double stdevr)
 {
-//	Laplacian_latest = false;
-//	Laplacian_kind = kind;
-	ComputeLAR();
-	ComputeLaplacian();
+	Eigen::VectorXd D;
+	D.resize(mesh.n_vertices());//顶点要沿着其法向进行偏移的距离
+	mesh.update_normals();
+	for (T::VertexHandle vh : mesh.vertices())
+	{
+		T::Normal N = mesh.normal(vh);
+		if (vh.idx()==130)
+			std::cout << N << std::endl;
+		T::Point V = mesh.point(vh);
+		double d_total = 0;
+		double Kv = 0;
+		for (T::VertexHandle vj : mesh.vv_range(vh))
+		{
+			T::Point Q = mesh.point(vj);
+			double t = (Q - V).norm();
+			double d = (N | (Q - V)) / N.norm();//点乘
+			double Ws = exp(-t * t / (2 * stdevs));
+			double Wr = exp(-d * d / (2 * stdevr));
+			d_total += Ws * Wr * d;
+			Kv += Ws * Wr;
+		}
+		D[vh.idx()] = d_total / Kv;
+	}
+	for (T::VertexHandle vh : mesh.vertices())
+	{
+		T::Normal N = mesh.normal(vh);
+		T::Point V = mesh.point(vh);
+		T::Point newp = V + N * D[vh.idx()];
+		mesh.set_point(vh, newp);
+	}
 }
+
+void Mesh::BilateralNormalFiltering(double stdevs, double stdevr)
+{
+	mesh.update_normals();
+	Eigen::MatrixXd NewNormal(NFaces(), 3);
+	Eigen::VectorXd FaceArea(mesh.n_faces());//三角形的面积
+	for (T::FaceHandle fh : mesh.faces())//更新三角形的面积和中心点
+	{
+		std::vector<T::Point> P;
+		for (T::VertexHandle vh : mesh.fv_range(fh))
+		{
+			P.push_back(mesh.point(vh));
+		}
+		auto e12 = (P[1] - P[0]);
+		auto e13 = (P[2] - P[0]);
+		double area = 0.5 * (e12 % e13).norm();
+		FaceArea[fh.idx()] = area;
+	}
+
+	for (T::FaceHandle fh : mesh.faces())
+	{
+		T::Normal N = mesh.normal(fh);
+		double newNormalX = 0, newNormalY = 0, newNormalZ = 0;//新法向的三个值
+		T::Point center(0, 0, 0);
+		for (T::VertexHandle fvi : mesh.fv_range(fh))//求面的中心
+		{
+			center += mesh.point(fvi);
+		}
+		center = center / 3;
+		double Kp = 0;
+		for (T::FaceHandle nei_fh : mesh.ff_range(fh))//遍历邻域的面
+		{
+			T::Point nei_center(0, 0, 0);
+			for (T::VertexHandle nei_fvi : mesh.fv_range(nei_fh))
+			{
+				nei_center += mesh.point(nei_fvi);
+			}
+			nei_center = nei_center / 3;//相邻面的中心
+			T::Normal nei_N = mesh.normal(nei_fh);
+			double delta_center = (nei_center - center).norm();
+			double delta_normal = (nei_N - N).norm();
+			double Aj = FaceArea[nei_fh.idx()];
+			Kp += Aj;
+			double Ws = exp(-delta_center * delta_center / (2 * stdevs));
+			double Wr = exp(-delta_normal * delta_normal / (2 * stdevr));
+			newNormalX += Aj * Ws * Wr * nei_N.data()[0];
+			newNormalY += Aj * Ws * Wr * nei_N.data()[1];
+			newNormalZ += Aj * Ws * Wr * nei_N.data()[2];
+		}
+		newNormalX /= Kp;
+		newNormalY /= Kp;
+		newNormalZ /= Kp;
+		double norm = sqrt(newNormalX * newNormalX + newNormalY * newNormalY + newNormalZ * newNormalZ);
+		//double norm = 1;
+		//std::cout << norm << std::endl;
+		NewNormal(fh.idx(), 0) = newNormalX / norm;
+		NewNormal(fh.idx(), 1) = newNormalY / norm;
+		NewNormal(fh.idx(), 2) = newNormalZ / norm;
+	}
+	//std::ofstream ori_normal("output//ori_normal.txt");
+	//Eigen::MatrixXd oriNormal(mesh.n_faces(),3);
+	//for (auto fh : mesh.faces())
+	//{
+	//	T::Normal N = mesh.normal(fh);
+	//	oriNormal(fh.idx(), 0) = N.data()[0];
+	//	oriNormal(fh.idx(), 1) = N.data()[1];
+	//	oriNormal(fh.idx(), 2) = N.data()[2];
+	//}
+	//ori_normal << oriNormal;
+	//ori_normal.close();
+//	for (T::FaceHandle fh : mesh.faces())
+//	{
+//		T::Normal n(NewNormal(fh.idx(), 0), NewNormal(fh.idx(),1), NewNormal(fh.idx(), 2));
+//		mesh.set_normal(fh, n);
+//	}//暂时更新法向，根据法向求新顶点
+	//std::ofstream new_normal("output//new_normal.txt");
+	//Eigen::MatrixXd newNormal(mesh.n_faces(),3);
+	//for (auto fh : mesh.faces())
+	//{
+	//	T::Normal N = mesh.normal(fh);
+	//	newNormal(fh.idx(), 0) = N.data()[0];
+	//	newNormal(fh.idx(), 1) = N.data()[1];
+	//	newNormal(fh.idx(), 2) = N.data()[2];
+	//}
+	//new_normal << newNormal;
+	//new_normal.close();
+	
+	//用Gauss-Seidel迭代,迭代20此
+	for (int i = 0; i < 200; i++)
+	{
+		for (T::VertexHandle vh : mesh.vertices())
+		{
+			T::Point x_i = mesh.point(vh);
+			T::Point delta_xi(0, 0, 0);
+			int Nei_count = 0;
+			for (T::FaceHandle fh : mesh.vf_range(vh))
+			{//新的面法向
+				Nei_count++;
+				T::Normal nj(NewNormal(fh.idx(), 0), NewNormal(fh.idx(), 1), NewNormal(fh.idx(), 2));
+				//由于每次的顶点是在不断修改的，所以不能预存中心点
+				std::vector<T::Point> P;
+				for (T::VertexHandle vh : mesh.fv_range(fh))
+				{
+					P.push_back(mesh.point(vh));
+				}
+				T::Point cj = (P[0] + P[1] + P[2]) / 3;
+				delta_xi += nj * (nj.data()[0] * (cj - x_i).data()[0] + nj.data()[1] * (cj - x_i).data()[1] + nj.data()[2] * (cj - x_i).data()[2]);
+			}
+			x_i += delta_xi / Nei_count;
+			mesh.set_point(vh, x_i);
+		}
+	}
+}
+//批量注释快捷键:Ctrl + K + C批量取消注释快捷键: Ctrl + K + U

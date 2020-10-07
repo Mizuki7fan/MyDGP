@@ -31,8 +31,10 @@ public slots:
 	void CalcMeshVolume(void);
 	void ComputeCurvature(int, int);
 	void MeshMakeNoise();
-	void DoFairing(int);
+	void DoFairing(int,int);
 	void DoSmoothing(int,int);
+	void DoBilateralDenoising(double,double);
+	void DoBilateralNormalFiltering(double, double);
 
 protected:
 	virtual void DrawScene(void) override;
@@ -46,6 +48,7 @@ private:
 	void DrawFlat(void) const;
 	void DrawSmooth(void) const;
 	void DrawCurvature(void) const;
+	void DrawFaceNormal(void) const;
 	void DrawBoundingBox(void) const;
 	void DrawBoundary(void) const;
 	void DrawTexture(void) const;

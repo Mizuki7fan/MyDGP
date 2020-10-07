@@ -42,6 +42,8 @@ public:
 	Eigen::Vector3d getPoint(int i) const;
 	Eigen::Vector3d getVertexNormal(int i) const;
 	Eigen::Vector3d getFaceNormal(int i) const;
+	void getVerticesNeighbour(int i, std::vector<int>& nei) const;
+	void getFaceNeighbour(int i, std::vector<int>& nei) const;
 	void getEdgeVertices(int e, int& v1, int& v2) const;
 	void getFaceVertices(int f, int& v1, int& v2, int& v3) const;
 	void getFaceAngles(int f, double& angle1, double& angle2, double& angle3) const;
@@ -49,10 +51,13 @@ public:
 	bool isBoundaryVertex(int) const;
 	void SetVerticesNewCoord();
 	void SetVertexNewCoord(int, Eigen::Vector3d);
+	void SetFacesNewNormalCoord();
 	Eigen::Vector3d getVertexCoord(int);
 	double ComputeMeshVolume();
 	void ComputeLaplacian();
-	void ComputeLaplacian(int);
+
+	void BilateralDenoising(double, double);
+	void BilateralNormalFiltering(double, double);
 
 	T mesh;
 private:

@@ -34,8 +34,10 @@ void MainViewerWidget::CreateParamWidget(void)
 	connect(meshparamwidget->wGeneral, SIGNAL(CalcVolumeSignal()),meshviewerwidget,SLOT(CalcMeshVolume()));
 	connect(meshparamwidget->wChap1, SIGNAL(ComputeCurvatureSignal(int, int)), meshviewerwidget, SLOT(ComputeCurvature(int, int)));
 	connect(meshparamwidget->wChap2, SIGNAL(MakeNoiseSignal()), meshviewerwidget, SLOT(MeshMakeNoise()));
-	connect(meshparamwidget->wChap2, SIGNAL(DoFairingSignal(int)), meshviewerwidget, SLOT(DoFairing(int)));
+	connect(meshparamwidget->wChap2, SIGNAL(DoFairingSignal(int,int)), meshviewerwidget, SLOT(DoFairing(int,int)));
 	connect(meshparamwidget->wChap2, SIGNAL(DoSmoothingSignal(int,int)), meshviewerwidget, SLOT(DoSmoothing(int,int)));
+	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralDenoisingSignal(double,double)), meshviewerwidget, SLOT(DoBilateralDenoising(double,double)));
+	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralNormalFilteringSignal(double, double)), meshviewerwidget, SLOT(DoBilateralNormalFiltering(double, double)));
 }
 
 void MainViewerWidget::CreateViewerDialog(void)
@@ -154,6 +156,11 @@ void MainViewerWidget::ShowSmooth(void)
 void MainViewerWidget::ShowCurvature(void)
 {
 	meshviewerwidget->SetDrawMode(InteractiveViewerWidget::CURVATURE);
+}
+
+void MainViewerWidget::ShowFaceNormal(void)
+{
+	meshviewerwidget->SetDrawMode(InteractiveViewerWidget::FACENORMAL);
 }
 
 void MainViewerWidget::Lighting(bool b)

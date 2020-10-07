@@ -27,7 +27,7 @@ public:
 	void SetProjectionMode(const ProjectionMode &pm);
 	const ProjectionMode & GetProjectionMode(void) const;
 
-	enum DrawMode{ POINTS, WIREFRAME, HIDDENLINES, FLATLINES, FLAT, SMOOTH,CURVATURE };
+	enum DrawMode{ POINTS, WIREFRAME, HIDDENLINES, FLATLINES, FLAT, SMOOTH,CURVATURE,FACENORMAL };
 	void SetDrawMode(const DrawMode &dm);
 	const DrawMode& GetDrawMode(void) const;
 

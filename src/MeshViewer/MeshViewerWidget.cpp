@@ -191,21 +191,31 @@ void MeshViewerWidget::MeshMakeNoise()
 	DGPAlgorithm::MakeNoise(*mesh);
 }
 
-void MeshViewerWidget::DoFairing(int power)
+void MeshViewerWidget::DoFairing(int lap_power, int lap_kind)
 {
-
-	if (power == 0)
+	if (lap_power <=0)
 	{
 		QMessageBox::critical(NULL, windowTitle(), QStringLiteral("´íÎóµÄÃÝÖµ"));
 		return;
 	}
-	DGPAlgorithm::DoFairing(*mesh, power);
+	DGPAlgorithm::DoFairing(*mesh, lap_power,lap_kind);
+
 }
 
 void MeshViewerWidget::DoSmoothing(int laplacekind,int integrationkind)
 {
 	DGPAlgorithm::DoSmoothing(*mesh,laplacekind,integrationkind);
-//	UpdateMesh();
+}
+
+void MeshViewerWidget::DoBilateralDenoising(double stdevs,double stdevr)
+{
+	DGPAlgorithm::DoBilateralDenoising(*mesh, stdevs,stdevr);
+
+}
+
+void MeshViewerWidget::DoBilateralNormalFiltering(double stdevs, double stdevr)
+{
+	DGPAlgorithm::DoBilateralNormalFiltering(*mesh, stdevs, stdevr);
 }
 
 void MeshViewerWidget::DrawScene(void)
@@ -250,6 +260,9 @@ void MeshViewerWidget::DrawSceneMesh(void)
 		break;
 	case CURVATURE:
 		DrawCurvature();
+		break;
+	case FACENORMAL:
+		DrawFaceNormal();
 		break;
 	default:
 		break;
@@ -406,6 +419,74 @@ void MeshViewerWidget::DrawCurvature(void) const
 	glDisable(GL_TEXTURE_2D);
 }
 
+void MeshViewerWidget::DrawFaceNormal(void) const
+{
+	double avg_length = 0;
+	for (int i = 0; i < mesh->NEdges(); i++)
+		avg_length += mesh->getEdgeLength(i);
+	avg_length /= mesh->NEdges();
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(1.5f, 2.0f);
+	glShadeModel(GL_FLAT);
+	glColor3d(1.0, 1.0, 1.0);
+	DrawFlat();
+	glDisable(GL_POLYGON_OFFSET_FILL);
+	if (glIsEnabled(GL_LIGHTING))
+	{
+		glDisable(GL_LIGHTING);
+		glColor3d(0.2, 0.2, 0.2);
+		glBegin(GL_LINES);
+		for (int i = 0; i < mesh->NEdges(); i++)
+		{
+			int v1idx, v2idx;
+			mesh->getEdgeVertices(i, v1idx, v2idx);
+			glNormal3d(mesh->getVertexNormal(v1idx).x(), mesh->getVertexNormal(v1idx).y(), mesh->getVertexNormal(v1idx).z());
+			glVertex3d(mesh->getPoint(v1idx)[0], mesh->getPoint(v1idx)[1], mesh->getPoint(v1idx)[2]);
+			glNormal3d(mesh->getVertexNormal(v2idx).x(), mesh->getVertexNormal(v2idx).y(), mesh->getVertexNormal(v2idx).z());
+			glVertex3d(mesh->getPoint(v2idx)[0], mesh->getPoint(v2idx)[1], mesh->getPoint(v2idx)[2]);
+		}
+		glColor3d(0.0, 0.0, 1.0);
+		for (int i = 0; i < mesh->NFaces(); i++)
+		{
+			int v1idx, v2idx, v3idx;
+			mesh->getFaceVertices(i, v1idx, v2idx, v3idx);
+			Eigen::Vector3d FNormal = mesh->getFaceNormal(i);
+			Eigen::Vector3d Center = (mesh->getPoint(v1idx) + mesh->getPoint(v2idx) + mesh->getPoint(v3idx)) / 3;
+			glVertex3d(Center.x(), Center.y(), Center.z());
+			glVertex3d(Center.x() + FNormal.x()*avg_length, Center.y() + FNormal.y() * avg_length, Center.z() + FNormal.z() * avg_length);
+		}
+		glEnd();
+		glEnable(GL_LIGHTING);
+	}
+	else
+	{
+		glColor3d(0.2, 0.2, 0.2);
+		glBegin(GL_LINES);
+		for (int i = 0; i < mesh->NEdges(); i++)
+		{
+			int v1idx, v2idx;
+			mesh->getEdgeVertices(i, v1idx, v2idx);
+			glNormal3d(mesh->getVertexNormal(v1idx).x(), mesh->getVertexNormal(v1idx).y(), mesh->getVertexNormal(v1idx).z());
+			glVertex3d(mesh->getPoint(v1idx)[0], mesh->getPoint(v1idx)[1], mesh->getPoint(v1idx)[2]);
+			glNormal3d(mesh->getVertexNormal(v2idx).x(), mesh->getVertexNormal(v2idx).y(), mesh->getVertexNormal(v2idx).z());
+			glVertex3d(mesh->getPoint(v2idx)[0], mesh->getPoint(v2idx)[1], mesh->getPoint(v2idx)[2]);
+		}
+		glColor3d(0.0, 0.0, 1.0);
+		for (int i = 0; i < mesh->NFaces(); i++)
+		{
+			int v1idx, v2idx, v3idx;
+			mesh->getFaceVertices(i, v1idx, v2idx, v3idx);
+			Eigen::Vector3d FNormal = mesh->getFaceNormal(i);
+			FNormal = FNormal / FNormal.norm() * avg_length;
+			Eigen::Vector3d Center = (mesh->getPoint(v1idx) + mesh->getPoint(v2idx) + mesh->getPoint(v3idx)) / 3;
+			glVertex3d(Center.x(), Center.y(), Center.z());
+			glVertex3d(Center.x() + FNormal.x(), Center.y() + FNormal.y(), Center.z() + FNormal.z());
+		}
+		glEnd();
+	}
+
+}
+
 void MeshViewerWidget::DrawBoundingBox(void) const
 {
 	float linewidth;
@@ -436,7 +517,7 @@ void MeshViewerWidget::DrawBoundary(void) const
 {
 	float linewidth;
 	glGetFloatv(GL_LINE_WIDTH, &linewidth);
-	glLineWidth(2.0f);
+	glLineWidth(5.0f);
 	glColor3d(0, 0, 1);
 	glBegin(GL_LINES);
 	for (int i=0;i<mesh->NEdges();i++)

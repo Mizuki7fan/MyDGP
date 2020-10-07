@@ -33,6 +33,7 @@ protected:
 	void ShowFlat(void);
 	void ShowSmooth(void);
 	void ShowCurvature(void);
+	void ShowFaceNormal(void);
 	void Lighting(bool b);
 	void DoubleSideLighting(bool b);
 	void ShowBoundingBox(bool b);

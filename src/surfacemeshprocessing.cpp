@@ -89,6 +89,13 @@ void SurfaceMeshProcessing::CreateActions(void)
 	actCurvature->setCheckable(true);
 	connect(actCurvature, SIGNAL(triggered()), viewer, SLOT(ShowCurvature()));
 
+	actFaceNormal = new QAction(tr("Face Normal"), this);
+	actFaceNormal->setIcon(QIcon(":/SurfaceMeshProcessing/Images/normal.png"));
+	actFaceNormal->setStatusTip(tr("Face Normal"));
+	actFaceNormal->setCheckable(true);
+	connect(actFaceNormal, SIGNAL(triggered()), viewer, SLOT(ShowFaceNormal()));
+
+
 	QActionGroup *agViewGroup = new QActionGroup(this);
 	agViewGroup->addAction(actPoints);
 	agViewGroup->addAction(actWireframe);
@@ -97,6 +104,7 @@ void SurfaceMeshProcessing::CreateActions(void)
 	agViewGroup->addAction(actFlat);
 	agViewGroup->addAction(actSmooth);
 	agViewGroup->addAction(actCurvature);
+	agViewGroup->addAction(actFaceNormal);
 	actFlatLines->setChecked(true);
 
 	actLighting = new QAction(tr("Light on/off"), this);
@@ -163,6 +171,7 @@ void SurfaceMeshProcessing::CreateMenus(void)
 	menuRenderMode->addAction(actFlat);
 	menuRenderMode->addAction(actSmooth);
 	menuRenderMode->addAction(actCurvature);
+	menuRenderMode->addAction(actFaceNormal);
 	QMenu *menuLighting = menuView->addMenu(tr("Lighting"));
 	menuLighting->addAction(actLighting);
 	menuLighting->addAction(actDoubleSide);
@@ -198,6 +207,8 @@ void SurfaceMeshProcessing::CreateToolBars(void)
 	tbView->addAction(actFlat);
 	tbView->addAction(actSmooth);
 	tbView->addAction(actCurvature);
+	tbView->addAction(actFaceNormal);
+
 	tbView->addSeparator()->setEnabled(false);
 	tbView->addAction(actLighting);
 	tbView->addAction(actBoundingBox);
