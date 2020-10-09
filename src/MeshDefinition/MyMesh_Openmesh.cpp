@@ -507,4 +507,94 @@ void Mesh::BilateralNormalFiltering(double stdevs, double stdevr)
 		}
 	}
 }
+void Mesh::CalcTutte()
+{
+	std::cout << 213 << std::endl;
+	//先把网格边界点按顺序投影到一个圆上
+	std::vector<int> Bnd_v;
+	for (T::VertexHandle vh : mesh.vertices())
+	{
+		if (mesh.is_boundary(vh))
+		{
+			Bnd_v.push_back(vh.idx());
+		}
+	}
+	if (Bnd_v.size() == 0)
+	{
+		std::cerr << "网格是封闭的" << std::endl;
+		return;
+	}
+	std::vector<int> Bnd_v_inorder;//有序的网格边界点
+	T::VertexHandle ima_bnd_v = mesh.vertex_handle(Bnd_v[0]);
+	std::vector<T::VertexHandle> vv_nei;
+	for (T::VertexHandle vvh : mesh.vv_range(ima_bnd_v))
+		if (mesh.is_boundary(vvh))
+			vv_nei.push_back(vvh);
+	T::VertexHandle pre_bnd_v = vv_nei[0];
+	T::VertexHandle next_bnd_v = vv_nei[1];
+
+	while (ima_bnd_v != pre_bnd_v)
+	{
+		Bnd_v_inorder.push_back(ima_bnd_v.idx());
+		T::VertexHandle nextnext_bnd_v;
+		for (T::VertexHandle vvh : mesh.vv_range(next_bnd_v))
+		{
+			if (mesh.is_boundary(vvh) && vvh != ima_bnd_v)
+			{
+				nextnext_bnd_v = vvh;
+				break;
+			}
+		}
+		ima_bnd_v = next_bnd_v;
+		next_bnd_v = nextnext_bnd_v;
+	}
+	Bnd_v_inorder.push_back(pre_bnd_v.idx());
+	if (Bnd_v_inorder.size() != Bnd_v.size())
+	{
+		std::cerr << "网格并非圆盘拓扑" << std::endl;
+	}
+	double r = 5.0;
+	int bnd_size = Bnd_v.size();
+	Eigen::MatrixXd A, b;
+	A.resize(mesh.n_vertices(), mesh.n_vertices());
+	A.setZero();
+	b.resize(mesh.n_vertices(), 3);
+	b.setZero();
+	for (double idx = 0; idx < bnd_size; idx++)
+	{
+		int vid = Bnd_v_inorder[idx];
+		A(vid, vid) = 1;
+		double theta = 2 * M_PI / bnd_size * idx;
+		b(vid, 0) = r * cos(theta);
+		b(vid, 1) = r * sin(theta);
+	}
+	for (T::VertexHandle vh : mesh.vertices())
+	{
+		if (mesh.is_boundary(vh))
+			continue;
+		//否则求vh的邻域
+		int nei_count = 0;
+		for (T::VertexHandle vnei : mesh.vv_range(vh))
+			nei_count++;
+		for (T::VertexHandle vnei : mesh.vv_range(vh))
+		{
+			//A(vh.idx(), vnei.idx()) = 1.0/nei_count;
+			A(vh.idx(), vnei.idx()) = 1.0;
+		}
+		//A(vh.idx(), vh.idx()) = -1;
+		A(vh.idx(), vh.idx()) = -nei_count;//这么写可以获得一个对称矩阵
+	}
+	Eigen::SparseMatrix<double> LL = A.sparseView();
+	//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
+	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+	solver.compute(LL);
+	Eigen::MatrixXd res = solver.solve(b);
+	for (T::VertexHandle vh : mesh.vertices())
+	{
+		int idx = vh.idx();
+		T::Point p(res(idx, 0), res(idx, 1), res(idx, 2));
+		mesh.set_point(vh, p);
+	}
+
+}
 //批量注释快捷键:Ctrl + K + C批量取消注释快捷键: Ctrl + K + U

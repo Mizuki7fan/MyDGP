@@ -58,6 +58,7 @@ public:
 
 	void BilateralDenoising(double, double);
 	void BilateralNormalFiltering(double, double);
+	void CalcTutte();
 
 	T mesh;
 private:

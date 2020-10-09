@@ -21,6 +21,7 @@ MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	isDrawBoundary(false)
 {
 	mesh = new Mesh();
+	mesh2 = new Mesh();
 }
 
 MeshViewerWidget::~MeshViewerWidget(void)
@@ -31,6 +32,7 @@ bool MeshViewerWidget::LoadMesh(const std::string & filename)
 {
 	Clear();
 	bool read_OK = mesh->Load(filename);
+	mesh2 = mesh;
 	std::cout << "Load mesh from file " << filename << std::endl;
 	if (read_OK)
 	{
@@ -163,6 +165,12 @@ void MeshViewerWidget::OpenDebug(void)
 	LoadMesh("D:/repository/GeometricProcessing/Housework/src/example/alien_remesh.obj");
 }
 
+void MeshViewerWidget::Redo(void)
+{
+	std::cout << "123" << std::endl;
+	mesh = mesh2;
+}
+
 void MeshViewerWidget::PrintMeshInfo(void)
 {
 	std::cout << "Mesh Info:\n";
@@ -216,6 +224,11 @@ void MeshViewerWidget::DoBilateralDenoising(double stdevs,double stdevr)
 void MeshViewerWidget::DoBilateralNormalFiltering(double stdevs, double stdevr)
 {
 	DGPAlgorithm::DoBilateralNormalFiltering(*mesh, stdevs, stdevr);
+}
+
+void MeshViewerWidget::CalcTutte()
+{
+	DGPAlgorithm::CalcTutte(*mesh);
 }
 
 void MeshViewerWidget::DrawScene(void)

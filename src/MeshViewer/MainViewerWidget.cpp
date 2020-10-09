@@ -29,6 +29,7 @@ void MainViewerWidget::InitViewerWindow(void)
 void MainViewerWidget::CreateParamWidget(void)
 {
 	meshparamwidget = new MeshParamWidget();
+	connect(meshparamwidget, SIGNAL(RedoSignal()), meshviewerwidget, SLOT(Redo()));
 	connect(meshparamwidget->wControlPanel, SIGNAL(openDebug()), meshviewerwidget, SLOT(OpenDebug()));
 	connect(meshparamwidget->wGeneral, SIGNAL(PrintInfo()), meshviewerwidget, SLOT(PrintMeshInfo()));
 	connect(meshparamwidget->wGeneral, SIGNAL(CalcVolumeSignal()),meshviewerwidget,SLOT(CalcMeshVolume()));
@@ -38,6 +39,7 @@ void MainViewerWidget::CreateParamWidget(void)
 	connect(meshparamwidget->wChap2, SIGNAL(DoSmoothingSignal(int,int)), meshviewerwidget, SLOT(DoSmoothing(int,int)));
 	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralDenoisingSignal(double,double)), meshviewerwidget, SLOT(DoBilateralDenoising(double,double)));
 	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralNormalFilteringSignal(double, double)), meshviewerwidget, SLOT(DoBilateralNormalFiltering(double, double)));
+	connect(meshparamwidget->wChap3, SIGNAL(CalcTutteSignal()), meshviewerwidget, SLOT(CalcTutte()));
 }
 
 void MainViewerWidget::CreateViewerDialog(void)

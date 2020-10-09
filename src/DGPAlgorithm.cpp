@@ -36,3 +36,8 @@ void DGPAlgorithm::DoBilateralNormalFiltering(MyMesh& mesh, double stdevs, doubl
 {
 	mesh.BilateralNormalFiltering(stdevs, stdevr);
 }
+
+void DGPAlgorithm::CalcTutte(MyMesh& mesh)
+{
+	mesh.CalcTutte();
+}

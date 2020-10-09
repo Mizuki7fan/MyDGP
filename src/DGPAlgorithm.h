@@ -15,7 +15,7 @@ public:
 	static void DoSmoothing(MyMesh& mesh, int laplacekind,int integrationkind);
 	static void DoBilateralDenoising(MyMesh& mesh, double stdevs,double stdevr);
 	static void DoBilateralNormalFiltering(MyMesh& mesh, double stdevs, double stdevr);
-
+	static void CalcTutte(MyMesh& mesh);
 private:
 
 };

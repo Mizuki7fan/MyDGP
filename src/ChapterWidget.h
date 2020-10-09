@@ -12,9 +12,13 @@ public:
 protected:
 	QLabel* lName;
 	QPushButton* pbReturn;
+	QPushButton* pbRedo;//重做
+	std::vector<QFrame*> Seperator;//分割线
+	int SeperatorCount = 10;//设置分割线的数目
 protected:
 signals:
 	void changeWidget(int i);
+	void Redo();
 	void openDebug();
 };
 
@@ -29,6 +33,7 @@ private:
 	QPushButton* pbGeneral;
 	QPushButton* pbChap1;
 	QPushButton* pbChap2;
+	QPushButton* pbChap3;
 };
 
 class GeneralWidget :public MyWidget
@@ -91,5 +96,21 @@ private:
 	QComboBox* qbLaplacianKind;//Laplacian的种类
 	QComboBox* qbIntegrationKind;//欧拉积分的类型
 	QComboBox* qbLaplacianSmoothObject;//对顶点位置还是曲率进行Laplacian的平滑
+};
+
+class Parameterization :public MyWidget
+{
+	Q_OBJECT;
+public:
+	Parameterization();
+
+private:
+signals:
+	void CalcTutteSignal();
+	void RedoSignal();
+
+private:
+	int SeperatorCount = 1;
+	QPushButton* pbCalcTutte;
 
 };

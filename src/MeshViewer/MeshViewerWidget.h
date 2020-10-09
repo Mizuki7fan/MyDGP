@@ -26,6 +26,7 @@ public:
 signals:
 	void LoadMeshOKSignal(bool, QString);
 public slots:
+	void Redo();
 	void OpenDebug(void);
 	void PrintMeshInfo(void);
 	void CalcMeshVolume(void);
@@ -35,6 +36,7 @@ public slots:
 	void DoSmoothing(int,int);
 	void DoBilateralDenoising(double,double);
 	void DoBilateralNormalFiltering(double, double);
+	void CalcTutte();
 
 protected:
 	virtual void DrawScene(void) override;
@@ -55,7 +57,7 @@ private:
 	void DrawColormap(void) const;
 	void MapCurvature(const std::vector<double>& values);
 protected:
-	MyMesh* mesh;
+	MyMesh* mesh,*mesh2;
 	QString strMeshFileName;
 	QString strMeshBaseName;
 	QString strMeshPath;

@@ -13,6 +13,9 @@ class MeshParamWidget : public QWidget
 public:
 	MeshParamWidget(QWidget *parent = 0);
 	~MeshParamWidget(void);
+public :
+signals:
+	void RedoSignal();
 
 public slots:
 	void SetShowWidget(int i);
@@ -24,5 +27,6 @@ public:
 	GeneralWidget* wGeneral;
 	DiscreteDifferentialGeometryWidget* wChap1;
 	Smoothing* wChap2;
+	Parameterization* wChap3;
 
 };

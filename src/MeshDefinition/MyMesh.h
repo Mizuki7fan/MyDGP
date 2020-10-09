@@ -53,6 +53,8 @@ public://直接通过网格读取进行的操作，以及不同网格类实现有很大不同的操作
 	virtual void BilateralDenoising(double, double);
 	virtual void BilateralNormalFiltering(double, double);
 
+	virtual void CalcTutte()=0;
+
 protected://辅助子类的功能
 	//计算三角形的外心
 	Eigen::Vector3d ComputeTriangleCirumcenter(Eigen::Vector3d& p1, Eigen::Vector3d& p2, Eigen::Vector3d& p3);
