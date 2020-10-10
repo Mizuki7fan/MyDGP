@@ -1,12 +1,6 @@
 #include <QtCore>
-//#include <OpenMesh/Core/IO/MeshIO.hh>
 #include "MeshViewerWidget.h"
 #include <iostream>
-#ifdef MESHTOOL_USE_OPENMESH
-#include "../MeshDefinition/MyMesh_Openmesh.h"
-#endif
-//#include <QOpenGLTexture>
-//#include <QOpenGLFrameBufferObject>
 #include "../DGPAlgorithm.h"
 #include <map>
 #include <QMessageBox>
@@ -14,15 +8,13 @@
 
 MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	: QGLViewerWidget(parent),
-	ptMin(0.0,0.0,0.0),
-	ptMax(0.0, 0.0, 0.0),
+	ptMin(0.0),
+	ptMax(0.0),
 	isEnableLighting(true),
 	isTwoSideLighting(false),
 	isDrawBoundingBox(false),
 	isDrawBoundary(false)
 {
-	mesh = new Mesh();
-//	addDock
 }
 
 MeshViewerWidget::~MeshViewerWidget(void)
@@ -32,7 +24,9 @@ MeshViewerWidget::~MeshViewerWidget(void)
 bool MeshViewerWidget::LoadMesh(const std::string & filename)
 {
 	Clear();
-	bool read_OK = mesh->Load(filename);
+	bool read_OK = mesh.Load(filename);
+	mesh2 = mesh;
+
 	std::cout << "Load mesh from file " << filename << std::endl;
 	if (read_OK)
 	{
@@ -49,13 +43,13 @@ bool MeshViewerWidget::LoadMesh(const std::string & filename)
 
 void MeshViewerWidget::Clear(void)
 {
-	mesh->Clear();
+	mesh.Clear();
 }
 
 void MeshViewerWidget::UpdateMesh(void)
 {
-	mesh->UpdateNormals();
-	if (mesh->VerticesEmpty())
+	mesh.UpdateNormals();
+	if (mesh.NVertices()==0)
 	{
 		std::cerr << "ERROR: UpdateMesh() No vertices!" << std::endl;
 		return;
@@ -63,23 +57,19 @@ void MeshViewerWidget::UpdateMesh(void)
 	ptMin[0] = ptMin[1] = ptMin[2] = DBL_MAX;
 	ptMax[0] = ptMax[1] = ptMax[2] = -DBL_MAX;
 
-	for (int i = 0; i < mesh->NVertices(); i++)
+	for (int i = 0; i < mesh.NVertices(); i++)
 	{
-		Eigen::Vector3d p = mesh->getPoint(i);
-		if (p.x() < ptMin.x()) ptMin.x() = p.x();
-		if (p.y() < ptMin.y()) ptMin.y() = p.y();
-		if (p.z() < ptMin.z()) ptMin.z() = p.z();
-		if (p.x() > ptMax.x()) ptMax.x() = p.x();
-		if (p.y() > ptMax.y()) ptMax.y() = p.y();
-		if (p.z() > ptMax.z()) ptMax.z() = p.z();
+		T::Point p = mesh.getPoint(i);
+		ptMin.minimize(p);
+		ptMax.maximize(p);
 	}
 
 	double avelen = 0.0;
 	double maxlen = 0.0;
 	double minlen = DBL_MAX;
-	for (int i=0;i<mesh->NEdges();i++)
+	for (int i=0;i<mesh.NEdges();i++)
 	{
-		double len = mesh->CalcEdgeLength(i);
+		double len = mesh.CalcEdgeLength(i);
 		maxlen = len > maxlen ? len : maxlen;
 		minlen = len < minlen ? len : minlen;
 		avelen += len;
@@ -87,18 +77,18 @@ void MeshViewerWidget::UpdateMesh(void)
 
 	SetScenePosition((ptMin + ptMax) * 0.5, (ptMin - ptMax).norm() * 0.5);
 	std::cout << "Information of the input mesh:" << std::endl;
-	std::cout << "  [V, E, F] = [" << mesh->NVertices() << ", " << mesh->NEdges() << ", " << mesh->NFaces() << "]\n";
+	std::cout << "  [V, E, F] = [" << mesh.NVertices() << ", " << mesh.NEdges() << ", " << mesh.NFaces() << "]\n";
 	std::cout << "  BoundingBox:\n";
 	std::cout << "  X: [" << ptMin[0] << ", " << ptMax[0] << "]\n";
 	std::cout << "  Y: [" << ptMin[1] << ", " << ptMax[1] << "]\n";
 	std::cout << "  Z: [" << ptMin[2] << ", " << ptMax[2] << "]\n";
 	std::cout << "  Diag length of BBox: " << (ptMax - ptMin).norm() << std::endl;
-	std::cout << "  Edge Length: [" << minlen << ", " << maxlen << "]; AVG: " << avelen / mesh->NEdges() << std::endl;
+	std::cout << "  Edge Length: [" << minlen << ", " << maxlen << "]; AVG: " << avelen / mesh.NEdges() << std::endl;
 }
 
 bool MeshViewerWidget::SaveMesh(const std::string & filename)
 {
-	return mesh->Write(filename);
+	return mesh.Write(filename);
 }
 
 bool MeshViewerWidget::ScreenShot()
@@ -141,7 +131,7 @@ void MeshViewerWidget::ResetView(void)
 
 void MeshViewerWidget::ViewCenter(void)
 {
-	if (!mesh->VerticesEmpty())
+	if (!mesh.NVertices()==0)
 	{
 		UpdateMesh();
 	}
@@ -167,13 +157,13 @@ void MeshViewerWidget::OpenDebug(void)
 
 void MeshViewerWidget::Redo(void)
 {
-	mesh->RestoreBackup();
+	std::cout << 123 << std::endl;
 }
 
 void MeshViewerWidget::PrintMeshInfo(void)
 {
 	std::cout << "Mesh Info:\n";
-	std::cout << "  [V, E, F] = [" << mesh->NVertices() << ", " << mesh->NEdges() << ", " << mesh->NFaces() << "]\n";
+	std::cout << "  [V, E, F] = [" << mesh.NVertices() << ", " << mesh.NEdges() << ", " << mesh.NFaces() << "]\n";
 	std::cout << "  BoundingBox:\n";
 	std::cout << "  X: [" << ptMin[0] << ", " << ptMax[0] << "]\n";
 	std::cout << "  Y: [" << ptMin[1] << ", " << ptMax[1] << "]\n";
@@ -183,19 +173,22 @@ void MeshViewerWidget::PrintMeshInfo(void)
 
 void MeshViewerWidget::CalcMeshVolume(void)
 {
-	mesh->ComputeMeshVolume();
+	double vol=mesh.ComputeMeshVolume();
+	QString item(QStringLiteral("体积"));
+	QString value = QString::fromStdString(std::to_string(vol));
+	emit(toStateBarSignal(item,value));
 }
 
 void MeshViewerWidget::ComputeCurvature(int i, int j)
 {
 	std::vector<double> value;
-	DGPAlgorithm::ComputeCurvature(i,j,*mesh, value);
+	DGPAlgorithm::ComputeCurvature(i,j,mesh, value);
 	MapCurvature(value);
 }
 
 void MeshViewerWidget::MeshMakeNoise()
 {
-	DGPAlgorithm::MakeNoise(*mesh);
+	DGPAlgorithm::MakeNoise(mesh);
 }
 
 void MeshViewerWidget::DoFairing(int lap_power, int lap_kind)
@@ -205,29 +198,29 @@ void MeshViewerWidget::DoFairing(int lap_power, int lap_kind)
 		QMessageBox::critical(NULL, windowTitle(), QStringLiteral("错误的幂值"));
 		return;
 	}
-	DGPAlgorithm::DoFairing(*mesh, lap_power,lap_kind);
+	DGPAlgorithm::DoFairing(mesh, lap_power,lap_kind);
 
 }
 
 void MeshViewerWidget::DoSmoothing(int laplacekind,int integrationkind)
 {
-	DGPAlgorithm::DoSmoothing(*mesh,laplacekind,integrationkind);
+	DGPAlgorithm::DoSmoothing(mesh,laplacekind,integrationkind);
 }
 
 void MeshViewerWidget::DoBilateralDenoising(double stdevs,double stdevr)
 {
-	DGPAlgorithm::DoBilateralDenoising(*mesh, stdevs,stdevr);
+	DGPAlgorithm::DoBilateralDenoising(mesh, stdevs,stdevr);
 
 }
 
 void MeshViewerWidget::DoBilateralNormalFiltering(double stdevs, double stdevr)
 {
-	DGPAlgorithm::DoBilateralNormalFiltering(*mesh, stdevs, stdevr);
+	DGPAlgorithm::DoBilateralNormalFiltering(mesh, stdevs, stdevr);
 }
 
 void MeshViewerWidget::CalcTutte()
 {
-	DGPAlgorithm::CalcTutte(*mesh);
+	DGPAlgorithm::CalcTutte(mesh);
 }
 
 void MeshViewerWidget::DrawScene(void)
@@ -247,7 +240,7 @@ void MeshViewerWidget::DrawScene(void)
 
 void MeshViewerWidget::DrawSceneMesh(void)
 {
-	if (mesh->NVertices() == 0) { return; }
+	if (mesh.NVertices() == 0) { return; }
 	SetMaterial();
 	switch (drawmode)
 	{
@@ -286,11 +279,11 @@ void MeshViewerWidget::DrawPoints(void) const
 	glColor3d(1.0, 0.5, 0.5);
 	glPointSize(5);
 	glBegin(GL_POINTS);
-	for ( int i = 0; i < mesh->NVertices(); i++)
+	for ( int i = 0; i < mesh.NVertices(); i++)
 	{
-			glVertex3d(mesh->getPoint(i)[0], mesh->getPoint(i)[1], mesh->getPoint(i)[2]);
-			Eigen::Vector3d n = mesh->getVertexNormal(i);
-			glNormal3d(n.x(), n.y(), n.z());
+			glVertex3dv(mesh.getPoint(i).data());
+			T::Normal n = mesh.getVertexNormal(i);
+			glNormal3dv(n.data());
 	}
 	glEnd();
 }
@@ -299,14 +292,14 @@ void MeshViewerWidget::DrawWireframe(void) const
 {
 	glColor3d(0.2, 0.2, 0.2);
 	glBegin(GL_LINES);
-	for (int i=0;i<mesh->NEdges();i++)
+	for (int i=0;i<mesh.NEdges();i++)
 	{
 		int v1idx, v2idx;
-		mesh->getEdgeVertices(i, v1idx, v2idx);
-		glNormal3d(mesh->getVertexNormal(v1idx).x(), mesh->getVertexNormal(v1idx).y(), mesh->getVertexNormal(v1idx).z());
-		glVertex3d(mesh->getPoint(v1idx)[0], mesh->getPoint(v1idx)[1], mesh->getPoint(v1idx)[2]);
-		glNormal3d(mesh->getVertexNormal(v2idx).x(), mesh->getVertexNormal(v2idx).y(), mesh->getVertexNormal(v2idx).z());
-		glVertex3d(mesh->getPoint(v2idx)[0], mesh->getPoint(v2idx)[1], mesh->getPoint(v2idx)[2]);
+		mesh.getEdgeVertices(i, v1idx, v2idx);
+		glNormal3dv(mesh.getVertexNormal(v1idx).data());
+		glVertex3dv(mesh.getPoint(v1idx).data());
+		glNormal3dv(mesh.getVertexNormal(v2idx).data());
+		glVertex3dv(mesh.getPoint(v2idx).data());
 	}
 	glEnd();
 }
@@ -360,14 +353,14 @@ void MeshViewerWidget::DrawFlatLines(void) const
 void MeshViewerWidget::DrawFlat(void) const
 {
 	glBegin(GL_TRIANGLES);
-	for (int i=0;i<mesh->NFaces();i++)
+	for (int i=0;i<mesh.NFaces();i++)
 	{
-		glNormal3d(mesh->getFaceNormal(i).x(), mesh->getFaceNormal(i).y(), mesh->getFaceNormal(i).z());
+		glNormal3dv(mesh.getFaceNormal(i).data());
 		int v1, v2, v3;
-		mesh->getFaceVertices(i, v1, v2, v3);
-		glVertex3d(mesh->getPoint(v1)[0], mesh->getPoint(v1)[1], mesh->getPoint(v1)[2]);
-		glVertex3d(mesh->getPoint(v2)[0], mesh->getPoint(v2)[1], mesh->getPoint(v2)[2]);
-		glVertex3d(mesh->getPoint(v3)[0], mesh->getPoint(v3)[1], mesh->getPoint(v3)[2]);
+		mesh.getFaceVertices(i, v1, v2, v3);
+		glVertex3dv(mesh.getPoint(v1).data());
+		glVertex3dv(mesh.getPoint(v2).data());
+		glVertex3dv(mesh.getPoint(v3).data());
 	}
 	glEnd();
 }
@@ -398,7 +391,7 @@ void MeshViewerWidget::DrawSmooth(void) const
 
 void MeshViewerWidget::DrawCurvature(void) const
 {
-	if (curvature_v.empty() || curvature_v.size() != mesh->NVertices())
+	if (curvature_v.empty() || curvature_v.size() != mesh.NVertices())
 	{
 		std::cerr << "ERROR: DrawColormap() values error." << std::endl;
 		return;
@@ -406,11 +399,11 @@ void MeshViewerWidget::DrawCurvature(void) const
 //	glEnable(GL_TEXTURE_2D);
 //	colormap->bind();
 	glBegin(GL_TRIANGLES);
-	for (int i=0;i<mesh->NFaces();i++)
+	for (int i=0;i<mesh.NFaces();i++)
 	{
-//		glNormal3d(mesh->getFaceNormal(i).x(), mesh->getFaceNormal(i).y(), mesh->getFaceNormal(i).z());
+//		glNormal3d(mesh.getFaceNormal(i).x(), mesh.getFaceNormal(i).y(), mesh.getFaceNormal(i).z());
 		int v1, v2, v3;
-		mesh->getFaceVertices(i, v1, v2, v3);
+		mesh.getFaceVertices(i, v1, v2, v3);
 		double value = (curvature_v[v1] + curvature_v[v2] + curvature_v[v3]) / 3;
 		if (0 < value && value < 0.25)
 			glColor3d(0, 4 * value, 1);
@@ -423,9 +416,9 @@ void MeshViewerWidget::DrawCurvature(void) const
 //		glColor3d()
 
 //		glTexCoord2d(value,value);
-		glVertex3d(mesh->getPoint(v1)[0], mesh->getPoint(v1)[1], mesh->getPoint(v1)[2]);
-		glVertex3d(mesh->getPoint(v2)[0], mesh->getPoint(v2)[1], mesh->getPoint(v2)[2]);
-		glVertex3d(mesh->getPoint(v3)[0], mesh->getPoint(v3)[1], mesh->getPoint(v3)[2]);
+		glVertex3d(mesh.getPoint(v1)[0], mesh.getPoint(v1)[1], mesh.getPoint(v1)[2]);
+		glVertex3d(mesh.getPoint(v2)[0], mesh.getPoint(v2)[1], mesh.getPoint(v2)[2]);
+		glVertex3d(mesh.getPoint(v3)[0], mesh.getPoint(v3)[1], mesh.getPoint(v3)[2]);
 	}
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
@@ -434,9 +427,9 @@ void MeshViewerWidget::DrawCurvature(void) const
 void MeshViewerWidget::DrawFaceNormal(void) const
 {
 	double avg_length = 0;
-	for (int i = 0; i < mesh->NEdges(); i++)
-		avg_length += mesh->getEdgeLength(i);
-	avg_length /= mesh->NEdges();
+	for (int i = 0; i < mesh.NEdges(); i++)
+		avg_length += mesh.getEdgeLength(i);
+	avg_length /= mesh.NEdges();
 	glEnable(GL_POLYGON_OFFSET_FILL);
 	glPolygonOffset(1.5f, 2.0f);
 	glShadeModel(GL_FLAT);
@@ -448,24 +441,24 @@ void MeshViewerWidget::DrawFaceNormal(void) const
 		glDisable(GL_LIGHTING);
 		glColor3d(0.2, 0.2, 0.2);
 		glBegin(GL_LINES);
-		for (int i = 0; i < mesh->NEdges(); i++)
+		for (int i = 0; i < mesh.NEdges(); i++)
 		{
 			int v1idx, v2idx;
-			mesh->getEdgeVertices(i, v1idx, v2idx);
-			glNormal3d(mesh->getVertexNormal(v1idx).x(), mesh->getVertexNormal(v1idx).y(), mesh->getVertexNormal(v1idx).z());
-			glVertex3d(mesh->getPoint(v1idx)[0], mesh->getPoint(v1idx)[1], mesh->getPoint(v1idx)[2]);
-			glNormal3d(mesh->getVertexNormal(v2idx).x(), mesh->getVertexNormal(v2idx).y(), mesh->getVertexNormal(v2idx).z());
-			glVertex3d(mesh->getPoint(v2idx)[0], mesh->getPoint(v2idx)[1], mesh->getPoint(v2idx)[2]);
+			mesh.getEdgeVertices(i, v1idx, v2idx);
+			glNormal3dv(mesh.getVertexNormal(v1idx).data());
+			glVertex3dv(mesh.getPoint(v1idx).data());
+			glNormal3dv(mesh.getVertexNormal(v2idx).data());
+			glVertex3dv(mesh.getPoint(v2idx).data());
 		}
 		glColor3d(0.0, 0.0, 1.0);
-		for (int i = 0; i < mesh->NFaces(); i++)
+		for (int i = 0; i < mesh.NFaces(); i++)
 		{
 			int v1idx, v2idx, v3idx;
-			mesh->getFaceVertices(i, v1idx, v2idx, v3idx);
-			Eigen::Vector3d FNormal = mesh->getFaceNormal(i);
-			Eigen::Vector3d Center = (mesh->getPoint(v1idx) + mesh->getPoint(v2idx) + mesh->getPoint(v3idx)) / 3;
-			glVertex3d(Center.x(), Center.y(), Center.z());
-			glVertex3d(Center.x() + FNormal.x()*avg_length, Center.y() + FNormal.y() * avg_length, Center.z() + FNormal.z() * avg_length);
+			mesh.getFaceVertices(i, v1idx, v2idx, v3idx);
+			T::Normal FNormal = mesh.getFaceNormal(i);
+			T::Point Center = (mesh.getPoint(v1idx) + mesh.getPoint(v2idx) + mesh.getPoint(v3idx)) / 3;
+			glVertex3dv(Center.data());
+			glVertex3dv((Center + FNormal*avg_length).data());
 		}
 		glEnd();
 		glEnable(GL_LIGHTING);
@@ -474,25 +467,25 @@ void MeshViewerWidget::DrawFaceNormal(void) const
 	{
 		glColor3d(0.2, 0.2, 0.2);
 		glBegin(GL_LINES);
-		for (int i = 0; i < mesh->NEdges(); i++)
+		for (int i = 0; i < mesh.NEdges(); i++)
 		{
 			int v1idx, v2idx;
-			mesh->getEdgeVertices(i, v1idx, v2idx);
-			glNormal3d(mesh->getVertexNormal(v1idx).x(), mesh->getVertexNormal(v1idx).y(), mesh->getVertexNormal(v1idx).z());
-			glVertex3d(mesh->getPoint(v1idx)[0], mesh->getPoint(v1idx)[1], mesh->getPoint(v1idx)[2]);
-			glNormal3d(mesh->getVertexNormal(v2idx).x(), mesh->getVertexNormal(v2idx).y(), mesh->getVertexNormal(v2idx).z());
-			glVertex3d(mesh->getPoint(v2idx)[0], mesh->getPoint(v2idx)[1], mesh->getPoint(v2idx)[2]);
+			mesh.getEdgeVertices(i, v1idx, v2idx);
+			glNormal3dv(mesh.getVertexNormal(v1idx).data());
+			glVertex3dv(mesh.getPoint(v1idx).data());
+			glNormal3dv(mesh.getVertexNormal(v2idx).data());
+			glVertex3dv(mesh.getPoint(v2idx).data());
 		}
 		glColor3d(0.0, 0.0, 1.0);
-		for (int i = 0; i < mesh->NFaces(); i++)
+		for (int i = 0; i < mesh.NFaces(); i++)
 		{
 			int v1idx, v2idx, v3idx;
-			mesh->getFaceVertices(i, v1idx, v2idx, v3idx);
-			Eigen::Vector3d FNormal = mesh->getFaceNormal(i);
+			mesh.getFaceVertices(i, v1idx, v2idx, v3idx);
+			T::Normal FNormal = mesh.getFaceNormal(i);
 			FNormal = FNormal / FNormal.norm() * avg_length;
-			Eigen::Vector3d Center = (mesh->getPoint(v1idx) + mesh->getPoint(v2idx) + mesh->getPoint(v3idx)) / 3;
-			glVertex3d(Center.x(), Center.y(), Center.z());
-			glVertex3d(Center.x() + FNormal.x(), Center.y() + FNormal.y(), Center.z() + FNormal.z());
+			T::Normal Center = (mesh.getPoint(v1idx) + mesh.getPoint(v2idx) + mesh.getPoint(v3idx)) / 3;
+			glVertex3dv(Center.data());
+			glVertex3dv((Center + FNormal).data());
 		}
 		glEnd();
 	}
@@ -532,16 +525,16 @@ void MeshViewerWidget::DrawBoundary(void) const
 	glLineWidth(5.0f);
 	glColor3d(0, 0, 1);
 	glBegin(GL_LINES);
-	for (int i=0;i<mesh->NEdges();i++)
+	for (int i=0;i<mesh.NEdges();i++)
 	{
-		if (mesh->isBoundary(i))
+		if (mesh.EdgeIsBoundary(i))
 		{
 			int v1idx, v2idx;
-			mesh->getEdgeVertices(i, v1idx, v2idx);
-			glNormal3d(mesh->getVertexNormal(v1idx).x(), mesh->getVertexNormal(v1idx).y(), mesh->getVertexNormal(v1idx).z());
-			glVertex3d(mesh->getPoint(v1idx)[0], mesh->getPoint(v1idx)[1], mesh->getPoint(v1idx)[2]);
-			glNormal3d(mesh->getVertexNormal(v2idx).x(), mesh->getVertexNormal(v2idx).y(), mesh->getVertexNormal(v2idx).z());
-			glVertex3d(mesh->getPoint(v2idx)[0], mesh->getPoint(v2idx)[1], mesh->getPoint(v2idx)[2]);
+			mesh.getEdgeVertices(i, v1idx, v2idx);
+			glNormal3dv(mesh.getVertexNormal(v1idx).data());
+			glVertex3dv(mesh.getPoint(v1idx).data());
+			glNormal3dv(mesh.getVertexNormal(v2idx).data());
+			glVertex3dv(mesh.getPoint(v2idx).data());
 		}
 	}
 	glEnd();

@@ -5,7 +5,7 @@ void DGPAlgorithm::ComputeCurvature(int LARKind, int CurvatureKind, MyMesh& mesh
 {
 	mesh.SetLARKind(MyMesh::LAR_KIND(LARKind));
 	mesh.SetCurvatureKind(MyMesh::CURVATURE_KIND(CurvatureKind));
-	mesh.ComputeCurvature();
+	mesh.CalcCurvature();
 	mesh.getVCurvature(curvature);
 }
 

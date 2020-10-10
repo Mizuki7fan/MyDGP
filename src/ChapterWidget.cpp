@@ -3,6 +3,7 @@
 ControlPanel::ControlPanel()
 {	
 	pbDebug = new QPushButton(QStringLiteral("打开测试网格"));
+
 	lName->setText(QStringLiteral("==  控制面板  =="));
 	pbGeneral = new QPushButton(QStringLiteral("通用"));
 	pbChap1 = new QPushButton(QStringLiteral("离散微分几何"));
@@ -11,6 +12,7 @@ ControlPanel::ControlPanel()
 
 	QGridLayout* pLayout = new QGridLayout();
 	pLayout->addWidget(pbDebug);
+	pLayout->addWidget(pbRedo);
 	pLayout->addWidget(lName);
 	pLayout->addWidget(pbGeneral);
 	pLayout->addWidget(pbChap1);
@@ -212,22 +214,16 @@ Parameterization::Parameterization()
 {
 	lName->setText(QStringLiteral("==  参数化  =="));
 	pbCalcTutte = new QPushButton(QStringLiteral("计算Tutte"));
-	lDistortion=new QLabel(QStringLiteral("扭曲:"));
-	lDistortionValue = new QLabel();
+	//lDistortion=new QLabel(QStringLiteral("扭曲:"));
+	//lDistortionValue = new QLabel();
 	int seperator_idx = 0;
 	int line_count = 0;
-//	QDockWidget* dockTest = new QDockWidget(QStringLiteral("悬浮窗测试"));
-//	dockTest->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-//	dockTest->setWidget(new QCalendarWidget());
-//	dockTest->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
-//	layout->addWidget(dockTest,5,0,1,2);
 
 	QGridLayout* layout = new QGridLayout();
 	layout->addWidget(lName, line_count, 0, 1, 2); line_count++;
 	layout->addWidget(pbReturn, line_count, 0, 1, 2); line_count++;
-	layout->addWidget(pbRedo, line_count, 0, 1, 2); line_count++;
-	layout->addWidget(lDistortion, line_count, 0, 1, 1);
-	layout->addWidget(lDistortionValue, line_count, 1, 1, 1); line_count++;
+	//layout->addWidget(lDistortion, line_count, 0, 1, 1);
+	//layout->addWidget(lDistortionValue, line_count, 1, 1, 1); line_count++;
 	layout->addWidget(Seperator[seperator_idx], line_count, 0, 1, 2); seperator_idx++; line_count++;
 	layout->addWidget(pbCalcTutte, line_count, 0, 1, 2); line_count++;
 
@@ -235,4 +231,42 @@ Parameterization::Parameterization()
 	layout->setMargin(0);
 	this->setLayout(layout);
 	connect(pbCalcTutte, &QPushButton::clicked, this, [=]() {this->CalcTutteSignal();});
+}
+
+StateBar::StateBar(int num)
+{
+	count = num;
+	QFrame* Seperator = new QFrame();
+	Seperator->setFrameShape(QFrame::HLine);
+	Seperator->setFrameShadow(QFrame::Raised);
+
+	Item.resize(num); Value.resize(num);
+	for (int i = 0; i < num; i++)
+	{
+		Item[i] = new QLabel();
+		Value[i] = new QLabel();
+	}
+
+	int line_count = 0;
+	QGridLayout* layout = new QGridLayout();
+	layout->addWidget(Seperator, line_count, 0, 1, 2); line_count++;
+	for (int i = 0; i < num; i++)
+	{
+		layout->addWidget(Item[i], line_count, 0, 1, 1);
+		layout->addWidget(Value[i], line_count, 1, 1, 1);
+		line_count++;
+	}
+	this->setLayout(layout);
+}
+
+void StateBar::StateBarSetValue(QString item, QString value)
+{
+	int N = Item.size() - 1;
+	for (int i=0;i<N;i++)
+	{
+		Item[N-i]->setText(Item[N-i-1]->text());
+		Value[N-i]->setText(Value[N-i-1]->text());
+	}
+	Item[0]->setText(item);
+	Value[0]->setText(value);
 }

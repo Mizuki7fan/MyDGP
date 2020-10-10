@@ -3,6 +3,21 @@
 #include <QWidget>
 #include <QtGui>
 
+class StateBar :public QWidget
+{
+	Q_OBJECT;
+public slots:
+	void StateBarSetValue(QString, QString);
+
+public:
+	StateBar(int i);
+	std::vector<QLabel*> Item;//左侧
+	std::vector<QLabel*> Value;
+
+	int count;
+
+};
+
 class MyWidget :public QWidget
 {
 	Q_OBJECT;
@@ -107,11 +122,10 @@ public:
 private:
 signals:
 	void CalcTutteSignal();
-	void RedoSignal();
 
 private:
 	int SeperatorCount = 1;
 	QPushButton* pbCalcTutte;
-	QLabel* lDistortion;//提示当前扭曲
-	QLabel* lDistortionValue;//显示当前扭曲的数值
+	//QLabel* lDistortion;//提示当前扭曲
+	//QLabel* lDistortionValue;//显示当前扭曲的数值
 };

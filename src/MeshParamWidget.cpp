@@ -9,7 +9,13 @@ MeshParamWidget::MeshParamWidget(QWidget *parent)
 	wChap1 = new DiscreteDifferentialGeometryWidget();
 	wChap2 = new Smoothing();
 	wChap3 = new Parameterization();
-
+	Statebar = new StateBar(5);
+	
+	QDockWidget* dock = new QDockWidget(QStringLiteral("StateBar"));
+	dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+	dock->setWidget(Statebar);
+	dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
+	
 	m_pStackedWidget = new QStackedWidget();
 	m_pStackedWidget->addWidget(wControlPanel);
 	m_pStackedWidget->addWidget(wGeneral);
@@ -20,6 +26,7 @@ MeshParamWidget::MeshParamWidget(QWidget *parent)
 	m_pStackedWidget->setCurrentIndex(0);
 	QVBoxLayout* layout = new QVBoxLayout();
 	layout->addWidget(m_pStackedWidget);
+	layout->addWidget(dock);
 	layout->setMargin(0);
 	this->setLayout(layout);
 

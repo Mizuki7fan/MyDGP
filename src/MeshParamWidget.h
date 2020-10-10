@@ -29,4 +29,6 @@ public:
 	Smoothing* wChap2;
 	Parameterization* wChap3;
 
+	StateBar* Statebar;
+
 };

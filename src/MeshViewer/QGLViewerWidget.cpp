@@ -8,7 +8,6 @@
 #include <QOpenGLTexture>
 #include <GL/freeglut.h>
 
-
 const double QGLViewerWidget::trackballradius = 0.6;
 
 QGLViewerWidget::QGLViewerWidget(QWidget* _parent)
@@ -20,13 +19,13 @@ QGLViewerWidget::QGLViewerWidget(QWidget* _parent)
 	windowtop(1),
 	windowbottom(-1),
 	mousemode(Qt::NoButton),
-	center(0,0,0),
+	center(0, 0, 0),
 	radius(0),
 	projectionmatrix(16, 0.0),
 	modelviewmatrix(16, 0.0),
 	copymodelviewmatrix(16, 0.0),
 	lastpoint2(0, 0),
-	lastpoint3(0,0,0),
+	lastpoint3(0, 0, 0),
 	lastpointok(false)
 {
 	Init();
@@ -55,7 +54,7 @@ QSize QGLViewerWidget::minimumSizeHint(void) const
 QSize QGLViewerWidget::sizeHint(void) const
 {
 	QRect rect = QApplication::desktop()->screenGeometry();
-	return QSize(int(rect.width()*0.8), int(rect.height()*1.0));
+	return QSize(int(rect.width() * 0.8), int(rect.height() * 1.0));
 }
 
 const double& QGLViewerWidget::Radius(void) const
@@ -63,7 +62,7 @@ const double& QGLViewerWidget::Radius(void) const
 	return radius;
 }
 
-const Eigen::Vector3d& QGLViewerWidget::Center(void) const
+const OpenMesh::Vec3d& QGLViewerWidget::Center(void) const
 {
 	return center;
 }
@@ -95,7 +94,7 @@ const double* QGLViewerWidget::GetProjectionMatrix(void) const
 	return &projectionmatrix[0];
 }
 
-void QGLViewerWidget::SetDrawMode(const DrawMode &dm)
+void QGLViewerWidget::SetDrawMode(const DrawMode& dm)
 {
 	drawmode = dm;
 	update();
@@ -106,7 +105,7 @@ const QGLViewerWidget::DrawMode& QGLViewerWidget::GetDrawMode(void) const
 	return drawmode;
 }
 
-void QGLViewerWidget::SetProjectionMode(const ProjectionMode &pm)
+void QGLViewerWidget::SetProjectionMode(const ProjectionMode& pm)
 {
 	projectionmode = pm;
 	UpdateProjectionMatrix();
@@ -118,7 +117,7 @@ const QGLViewerWidget::ProjectionMode& QGLViewerWidget::GetProjectionMode(void) 
 	return projectionmode;
 }
 
-void QGLViewerWidget::SetMaterial(const MaterialType & mattype) const
+void QGLViewerWidget::SetMaterial(const MaterialType& mattype) const
 {
 	std::vector<GLfloat> matAmbient, matDiffuse, matSpecular;
 	GLfloat matShininess;
@@ -218,7 +217,7 @@ void QGLViewerWidget::initializeGL(void)
 	glGetDoublev(GL_MODELVIEW_MATRIX, &modelviewmatrix[0]);
 	CopyModelViewMatrix();
 
-	SetScenePosition(Eigen::Vector3d(0.0, 0.0, 0.0), 1.0);
+	SetScenePosition(OpenMesh::Vec3d(0.0, 0.0, 0.0), 1.0);
 	LoadTexture();
 }
 
@@ -306,7 +305,7 @@ void QGLViewerWidget::mouseMoveEvent(QMouseEvent* _event)
 	update();
 }
 
-void QGLViewerWidget::mouseReleaseEvent(QMouseEvent*  _event)
+void QGLViewerWidget::mouseReleaseEvent(QMouseEvent* _event)
 {
 	//assert(mousemode < N_MOUSE_MODES);
 	mousemode = Qt::NoButton;
@@ -349,7 +348,7 @@ void QGLViewerWidget::LoadTexture(void)
 	colormap->setWrapMode(QOpenGLTexture::WrapMode::ClampToEdge);
 }
 
-void QGLViewerWidget::Translation(const QPoint & p)
+void QGLViewerWidget::Translation(const QPoint& p)
 {
 	double z = -(modelviewmatrix[2] * center[0] +
 		modelviewmatrix[6] * center[1] +
@@ -363,14 +362,14 @@ void QGLViewerWidget::Translation(const QPoint & p)
 	double w = width(); double h = height();
 	double aspect = w / h;
 	double near_plane = 0.01 * radius;
-	double top = tan(45.0 / 2.0f*M_PI / 180.0f) * near_plane;
-	double right = aspect*top;
+	double top = tan(45.0 / 2.0f * M_PI / 180.0f) * near_plane;
+	double right = aspect * top;
 
 	double dx = p.x() - lastpoint2.x();
 	double dy = p.y() - lastpoint2.y();
 
-	Translate(Eigen::Vector3d(2.0*dx / w*right / near_plane*z,
-		-2.0*dy / h*top / near_plane*z,
+	Translate(Eigen::Vector3d(2.0 * dx / w * right / near_plane * z,
+		-2.0 * dy / h * top / near_plane * z,
 		0.0f));
 }
 
@@ -385,7 +384,7 @@ void QGLViewerWidget::Translate(const Eigen::Vector3d& _trans)
 	glGetDoublev(GL_MODELVIEW_MATRIX, &modelviewmatrix[0]);
 }
 
-void QGLViewerWidget::Rotation(const QPoint & p)
+void QGLViewerWidget::Rotation(const QPoint& p)
 {
 	Eigen::Vector3d  newPoint3D;
 	bool newPoint_hitSphere = MapToSphere(p, newPoint3D);
@@ -403,7 +402,7 @@ void QGLViewerWidget::Rotation(const QPoint & p)
 		}
 		// find the amount of rotation
 		Eigen::Vector3d d = lastpoint3 - newPoint3D;
-		double t = 0.5*d.norm() / trackballradius;
+		double t = 0.5 * d.norm() / trackballradius;
 		if (t < -1.0) t = -1.0;
 		else if (t > 1.0) t = 1.0;
 		double phi = 2.0 * asin(t);
@@ -412,7 +411,7 @@ void QGLViewerWidget::Rotation(const QPoint & p)
 	}
 }
 
-void QGLViewerWidget::Rotate(const Eigen::Vector3d& _axis, const double & _angle)
+void QGLViewerWidget::Rotate(const Eigen::Vector3d& _axis, const double& _angle)
 {
 	// Rotate around center center_, axis _axis, by angle _angle
 	// Update modelview_matrix_
@@ -443,22 +442,22 @@ bool QGLViewerWidget::MapToSphere(const QPoint& _v2D, Eigen::Vector3d& _v3D)
 {
 	// This is actually doing the Sphere/Hyperbolic sheet hybrid thing,
 	// based on Ken Shoemake's ArcBall in Graphics Gems IV, 1993.
-	double x = (2.0*_v2D.x() - width()) / width();
-	double y = -(2.0*_v2D.y() - height()) / height();
+	double x = (2.0 * _v2D.x() - width()) / width();
+	double y = -(2.0 * _v2D.y() - height()) / height();
 	double xval = x;
 	double yval = y;
-	double x2y2 = xval*xval + yval*yval;
+	double x2y2 = xval * xval + yval * yval;
 
 	const double rsqr = trackballradius * trackballradius;
 	_v3D[0] = xval;
 	_v3D[1] = yval;
-	if (x2y2 < 0.5*rsqr)
+	if (x2y2 < 0.5 * rsqr)
 	{
 		_v3D[2] = sqrt(rsqr - x2y2);
 	}
 	else
 	{
-		_v3D[2] = 0.5*rsqr / sqrt(x2y2);
+		_v3D[2] = 0.5 * rsqr / sqrt(x2y2);
 	}
 
 	return true;
@@ -486,7 +485,7 @@ void QGLViewerWidget::UpdateProjectionMatrix(void)
 	glMatrixMode(GL_MODELVIEW);
 }
 
-void QGLViewerWidget::SetScenePosition(const Eigen::Vector3d& _center, const double & _radius)
+void QGLViewerWidget::SetScenePosition(const OpenMesh::Vec3d& _center, const double& _radius)
 {
 	center = _center;
 	radius = _radius;
@@ -502,14 +501,14 @@ void QGLViewerWidget::ViewAll(void)
 		modelviewmatrix[8] * center[2] +
 		modelviewmatrix[12]),
 		-(modelviewmatrix[1] * center[0] +
-		modelviewmatrix[5] * center[1] +
-		modelviewmatrix[9] * center[2] +
-		modelviewmatrix[13]),
+			modelviewmatrix[5] * center[1] +
+			modelviewmatrix[9] * center[2] +
+			modelviewmatrix[13]),
 		-(modelviewmatrix[2] * center[0] +
-		modelviewmatrix[6] * center[1] +
-		modelviewmatrix[10] * center[2] +
-		modelviewmatrix[14] +
-		2.0*radius));
+			modelviewmatrix[6] * center[1] +
+			modelviewmatrix[10] * center[2] +
+			modelviewmatrix[14] +
+			2.0 * radius));
 
 	makeCurrent();
 	glLoadIdentity();

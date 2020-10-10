@@ -1,4 +1,5 @@
 #pragma once
+#include <OpenMesh/Core/Geometry/VectorT.hh>
 #include <QOpenGLWidget>
 #include <Eigen/Dense>
 class QOpenGLTexture;
@@ -14,26 +15,26 @@ private:
 public:
 	QSize minimumSizeHint(void) const override;
 	QSize sizeHint(void) const override;
-	const double & Radius(void) const;
-	const Eigen::Vector3d& Center(void) const;
-//	const OpenMesh::Vec3d & Center(void) const;
+	const double& Radius(void) const;
+	//const T::Point& Center(void) const;
+	const OpenMesh::Vec3d & Center(void) const;
 	const double* GetModelviewMatrix(void) const;
 	void ResetModelviewMatrix(void);
 	void CopyModelViewMatrix(void);
 	void LoadCopyModelViewMatrix(void);
 	const double* GetProjectionMatrix(void) const;
 
-	enum ProjectionMode{ PERSPECTIVE, ORTHOGRAPHIC };
-	void SetProjectionMode(const ProjectionMode &pm);
-	const ProjectionMode & GetProjectionMode(void) const;
+	enum ProjectionMode { PERSPECTIVE, ORTHOGRAPHIC };
+	void SetProjectionMode(const ProjectionMode& pm);
+	const ProjectionMode& GetProjectionMode(void) const;
 
-	enum DrawMode{ POINTS, WIREFRAME, HIDDENLINES, FLATLINES, FLAT, SMOOTH,CURVATURE,FACENORMAL };
-	void SetDrawMode(const DrawMode &dm);
+	enum DrawMode { POINTS, WIREFRAME, HIDDENLINES, FLATLINES, FLAT, SMOOTH, CURVATURE, FACENORMAL };
+	void SetDrawMode(const DrawMode& dm);
 	const DrawMode& GetDrawMode(void) const;
 
 protected:
 	enum MaterialType { MaterialDefault, MaterialGold, MaterialSilver, MaterialEmerald, MaterialTin };
-	void SetMaterial(const MaterialType & mattype = MaterialGold) const;
+	void SetMaterial(const MaterialType& mattype = MaterialGold) const;
 	void SetDefaultLight(void) const;
 	void initializeGL(void) override;
 	void resizeGL(int w, int h) override;
@@ -47,14 +48,14 @@ protected:
 	virtual void keyReleaseEvent(QKeyEvent*) override;
 private:
 	void LoadTexture(void);
-	void Translation(const QPoint & p);
-	void Translate(const Eigen::Vector3d & trans);
-	void Rotation(const QPoint & p);
-	void Rotate(const Eigen::Vector3d & axis, const double & angle);
-	bool MapToSphere(const QPoint & point, Eigen::Vector3d & result);
+	void Translation(const QPoint& p);
+	void Translate(const Eigen::Vector3d& trans);
+	void Rotation(const QPoint& p);
+	void Rotate(const Eigen::Vector3d& axis, const double& angle);
+	bool MapToSphere(const QPoint& point, Eigen::Vector3d& result);
 	void UpdateProjectionMatrix(void);
 public:
-	void SetScenePosition(const Eigen::Vector3d & c, const double & r);
+	void SetScenePosition(const OpenMesh::Vec3d& c, const double& r);
 	void ViewAll(void);
 protected:
 	QOpenGLTexture* texture;
@@ -66,7 +67,7 @@ protected:
 	double windowtop;
 	double windowbottom;
 	Qt::MouseButton mousemode;
-	Eigen::Vector3d center;
+	OpenMesh::Vec3d center;
 	double radius;
 	std::vector<double> projectionmatrix;
 	std::vector<double> modelviewmatrix;

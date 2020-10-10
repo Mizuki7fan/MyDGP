@@ -23,7 +23,6 @@ void MainViewerWidget::InitViewerWindow(void)
 	QHBoxLayout* main_layout = new QHBoxLayout();
 	main_layout->addWidget(meshparamwidget,1);
 	main_layout->addWidget(meshviewerwidget, 6);
-//	meshviewerwidget->
 	this->setLayout(main_layout);
 }
 
@@ -41,13 +40,17 @@ void MainViewerWidget::CreateParamWidget(void)
 	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralDenoisingSignal(double,double)), meshviewerwidget, SLOT(DoBilateralDenoising(double,double)));
 	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralNormalFilteringSignal(double, double)), meshviewerwidget, SLOT(DoBilateralNormalFiltering(double, double)));
 	connect(meshparamwidget->wChap3, SIGNAL(CalcTutteSignal()), meshviewerwidget, SLOT(CalcTutte()));
-}
+
+	connect(meshviewerwidget, SIGNAL(toStateBarSignal(QString,QString)), meshparamwidget->Statebar, SLOT(StateBarSetValue(QString, QString)));
+
+	}
 
 void MainViewerWidget::CreateViewerDialog(void)
 {
 	meshviewerwidget = new InteractiveViewerWidget(NULL);
 	meshviewerwidget->setAcceptDrops(true);
 	connect(meshviewerwidget, SIGNAL(LoadMeshOKSignal(bool, QString)), SLOT(LoadMeshFromInner(bool, QString)));
+	//connect(meshviewerwidget, SIGNAL(toStateBar(std::vector<std::string>, std::vector<std::string>)), meshparamwidget->Statebar, SLOT(StateBarSetValue(std::vector<std::string>, std::vector<std::string>)));
 }
 
 void MainViewerWidget::OpenMeshGUI(const QString & fname)

@@ -2,7 +2,6 @@
 #include <QString>
 #include "QGLViewerWidget.h"
 #include "../MeshDefinition/MyMesh.h"
-//#include "../MeshDefinition/MyMesh_Openmesh.h"
 #include <vector>
 
 class MeshViewerWidget : public QGLViewerWidget
@@ -26,6 +25,7 @@ public:
 	void LoadRotation(void);
 signals:
 	void LoadMeshOKSignal(bool, QString);
+	void toStateBarSignal(QString,QString);
 public slots:
 	void Redo();
 	void OpenDebug(void);
@@ -58,11 +58,11 @@ private:
 	void DrawColormap(void) const;
 	void MapCurvature(const std::vector<double>& values);
 protected:
-	MyMesh* mesh;
+	MyMesh mesh,mesh2;
 	QString strMeshFileName;
 	QString strMeshBaseName;
 	QString strMeshPath;
-	Eigen::Vector3d ptMin, ptMax;
+	T::Point ptMin, ptMax;
 	bool isEnableLighting;
 	bool isTwoSideLighting;
 	bool isDrawBoundingBox;
@@ -70,6 +70,6 @@ protected:
 	std::vector<double> colormapvalues;
 	std::vector<double> curvature_v;
 
-	//StateBar* sbWidget;
-	//QDockWidget* dockTest;
+	std::vector<std::string> item;
+	std::vector<std::string> value;
 };
