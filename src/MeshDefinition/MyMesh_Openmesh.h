@@ -27,6 +27,8 @@ public:
 	Mesh();
     bool Load(std::string);
 	void LoadVertex();
+	void MakeBackup();
+	void RestoreBackup();
 	bool Write(std::string);
 	void Clear();
 	void UpdateNormals();
@@ -60,7 +62,7 @@ public:
 	void BilateralNormalFiltering(double, double);
 	void CalcTutte();
 
-	T mesh;
+	T mesh,mesh2;
 private:
 	T::Point toPoint(Eigen::Vector3d v) { return T::Point(v.x(), v.y(), v.z()); }
 };

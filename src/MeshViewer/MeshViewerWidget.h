@@ -2,6 +2,7 @@
 #include <QString>
 #include "QGLViewerWidget.h"
 #include "../MeshDefinition/MyMesh.h"
+//#include "../MeshDefinition/MyMesh_Openmesh.h"
 #include <vector>
 
 class MeshViewerWidget : public QGLViewerWidget
@@ -57,7 +58,7 @@ private:
 	void DrawColormap(void) const;
 	void MapCurvature(const std::vector<double>& values);
 protected:
-	MyMesh* mesh,*mesh2;
+	MyMesh* mesh;
 	QString strMeshFileName;
 	QString strMeshBaseName;
 	QString strMeshPath;
@@ -68,4 +69,7 @@ protected:
 	bool isDrawBoundary;
 	std::vector<double> colormapvalues;
 	std::vector<double> curvature_v;
+
+	//StateBar* sbWidget;
+	//QDockWidget* dockTest;
 };

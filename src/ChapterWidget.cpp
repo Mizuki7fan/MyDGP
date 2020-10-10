@@ -16,7 +16,7 @@ ControlPanel::ControlPanel()
 	pLayout->addWidget(pbChap1);
 	pLayout->addWidget(pbChap2);
 	pLayout->addWidget(pbChap3);
-
+	
 	pLayout->setAlignment(Qt::AlignTop);
 	pLayout->setMargin(0);
 	this->setLayout(pLayout);
@@ -212,13 +212,25 @@ Parameterization::Parameterization()
 {
 	lName->setText(QStringLiteral("==  ²ÎÊý»¯  =="));
 	pbCalcTutte = new QPushButton(QStringLiteral("¼ÆËãTutte"));
+	lDistortion=new QLabel(QStringLiteral("Å¤Çú:"));
+	lDistortionValue = new QLabel();
 	int seperator_idx = 0;
+	int line_count = 0;
+//	QDockWidget* dockTest = new QDockWidget(QStringLiteral("Ðü¸¡´°²âÊÔ"));
+//	dockTest->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+//	dockTest->setWidget(new QCalendarWidget());
+//	dockTest->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
+//	layout->addWidget(dockTest,5,0,1,2);
+
 	QGridLayout* layout = new QGridLayout();
-	layout->addWidget(lName, 0, 0, 1, 2);
-	layout->addWidget(pbReturn, 1, 0, 1, 2);
-	layout->addWidget(pbRedo, 2, 0, 1, 2);
-	layout->addWidget(Seperator[seperator_idx], 3, 0, 1, 2); seperator_idx++;
-	layout->addWidget(pbCalcTutte,4, 0, 1, 2);
+	layout->addWidget(lName, line_count, 0, 1, 2); line_count++;
+	layout->addWidget(pbReturn, line_count, 0, 1, 2); line_count++;
+	layout->addWidget(pbRedo, line_count, 0, 1, 2); line_count++;
+	layout->addWidget(lDistortion, line_count, 0, 1, 1);
+	layout->addWidget(lDistortionValue, line_count, 1, 1, 1); line_count++;
+	layout->addWidget(Seperator[seperator_idx], line_count, 0, 1, 2); seperator_idx++; line_count++;
+	layout->addWidget(pbCalcTutte, line_count, 0, 1, 2); line_count++;
+
 	layout->setAlignment(Qt::AlignTop);
 	layout->setMargin(0);
 	this->setLayout(layout);

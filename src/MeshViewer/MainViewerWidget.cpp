@@ -23,6 +23,7 @@ void MainViewerWidget::InitViewerWindow(void)
 	QHBoxLayout* main_layout = new QHBoxLayout();
 	main_layout->addWidget(meshparamwidget,1);
 	main_layout->addWidget(meshviewerwidget, 6);
+//	meshviewerwidget->
 	this->setLayout(main_layout);
 }
 

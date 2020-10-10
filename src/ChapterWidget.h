@@ -112,5 +112,6 @@ signals:
 private:
 	int SeperatorCount = 1;
 	QPushButton* pbCalcTutte;
-
+	QLabel* lDistortion;//提示当前扭曲
+	QLabel* lDistortionValue;//显示当前扭曲的数值
 };

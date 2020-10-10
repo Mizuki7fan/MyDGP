@@ -10,6 +10,7 @@
 #include "../DGPAlgorithm.h"
 #include <map>
 #include <QMessageBox>
+#include <QDockWidget>
 
 MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	: QGLViewerWidget(parent),
@@ -21,7 +22,7 @@ MeshViewerWidget::MeshViewerWidget(QWidget* parent)
 	isDrawBoundary(false)
 {
 	mesh = new Mesh();
-	mesh2 = new Mesh();
+//	addDock
 }
 
 MeshViewerWidget::~MeshViewerWidget(void)
@@ -32,7 +33,6 @@ bool MeshViewerWidget::LoadMesh(const std::string & filename)
 {
 	Clear();
 	bool read_OK = mesh->Load(filename);
-	mesh2 = mesh;
 	std::cout << "Load mesh from file " << filename << std::endl;
 	if (read_OK)
 	{
@@ -167,8 +167,7 @@ void MeshViewerWidget::OpenDebug(void)
 
 void MeshViewerWidget::Redo(void)
 {
-	std::cout << "123" << std::endl;
-	mesh = mesh2;
+	mesh->RestoreBackup();
 }
 
 void MeshViewerWidget::PrintMeshInfo(void)

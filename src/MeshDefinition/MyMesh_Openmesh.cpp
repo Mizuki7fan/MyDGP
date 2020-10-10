@@ -30,6 +30,16 @@ void Mesh::LoadVertex()
 	VertexNormal_latest = false;
 }
 
+void Mesh::MakeBackup()
+{
+	mesh2 = mesh;
+}
+
+void Mesh::RestoreBackup()
+{
+	mesh = mesh2;
+}
+
 bool Mesh::Write(std::string s)
 {
 	return OpenMesh::IO::write_mesh(mesh, s);
@@ -509,7 +519,6 @@ void Mesh::BilateralNormalFiltering(double stdevs, double stdevr)
 }
 void Mesh::CalcTutte()
 {
-	std::cout << 213 << std::endl;
 	//先把网格边界点按顺序投影到一个圆上
 	std::vector<int> Bnd_v;
 	for (T::VertexHandle vh : mesh.vertices())
@@ -588,13 +597,12 @@ void Mesh::CalcTutte()
 	//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	solver.compute(LL);
-	Eigen::MatrixXd res = solver.solve(b);
+	Eigen::MatrixXd res = solver.solve(b);//参数化结果的点
 	for (T::VertexHandle vh : mesh.vertices())
 	{
 		int idx = vh.idx();
 		T::Point p(res(idx, 0), res(idx, 1), res(idx, 2));
 		mesh.set_point(vh, p);
 	}
-
 }
 //批量注释快捷键:Ctrl + K + C批量取消注释快捷键: Ctrl + K + U
