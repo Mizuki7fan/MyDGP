@@ -609,6 +609,107 @@ void MyMesh::CalcTutte()
 	}
 }
 
+void MyMesh::CalcLSCM()
+{
+	//有2种方法，先用赵征宇教的
+	Eigen::MatrixXd a(2, 2);
+	int nv = mesh.n_vertices();
+	a(0, 0) = 0; a(0, 1) = 1; a(1, 0) = -1; a(1, 1) = 0;
+	Eigen::SparseMatrix<double> A(2 * mesh.n_faces(), 2 * mesh.n_vertices());
+	std::vector<Eigen::Triplet<double>> tripletsL;
+	for (T::FaceHandle fh : mesh.faces())
+	{
+		int idx = fh.idx();
+		std::vector<T::VertexHandle> f_v;
+		for (T::VertexHandle fv : mesh.fv_range(fh))
+		{
+			f_v.push_back(fv);
+		}
+		double x0, y0, x1, y1, x2, y2;
+		T::Point p0 = mesh.point(f_v[0]), p1 = mesh.point(f_v[1]), p2 = mesh.point(f_v[2]);
+		double Area = CalcTriangleArea(p0, p1, p2);
+		x0 = 0; y0 = 0;
+		OpenMesh::Vec3d e01 = p1 - p0;
+		x1 = e01.length(), y1 = 0;
+		OpenMesh::Vec3d e02 = p2 - p0;
+		y2 = 2*Area / e01.length();
+		x2 = sqrt(e02.length() * e02.length() - y2 * y2);
+		Eigen::MatrixXd Mt(2, 3);
+		Mt(0, 0) = y1 - y2; Mt(0, 1) = y2 - y0; Mt(0, 2) = y0 - y1;
+		Mt(1, 0) = x2 - x1; Mt(1, 1) = x0 - x2; Mt(1, 2) = x1 - x0;
+		Mt = Mt / Area;
+		Eigen::MatrixXd Mt_u = a * Mt;
+		//u在前，v在后
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[0].idx(), Mt_u(0, 0)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[1].idx(), Mt_u(0, 1)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[2].idx(), Mt_u(0, 2)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[0].idx()+nv, Mt(0, 0)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[1].idx()+nv, Mt(0, 1)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[2].idx()+nv, Mt(0, 2)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[0].idx(), Mt_u(1, 0)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[1].idx(), Mt_u(1, 1)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[2].idx(), Mt_u(1, 2)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[0].idx() + nv, Mt(1, 0)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[1].idx() + nv, Mt(1, 1)));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[2].idx() + nv, Mt(1, 2)));
+	}
+	A.setFromTriplets(tripletsL.begin(), tripletsL.end());
+	//选择2个点进行固定
+	Eigen::SparseMatrix<double> M = A.transpose() * A;
+	std::cout <<"rate="<< M.nonZeros()/(mesh.n_vertices()*mesh.n_vertices()) << std::endl;
+	//http://www.suoniao.com/article/22026
+	//稀疏转三元组
+	tripletsL.clear();	
+	for (int k = 0; k < M.outerSize(); ++k)
+		for (Eigen::SparseMatrix<double>::InnerIterator it(M, k); it; ++it)
+		{
+			//std::cout << it.row() << "   " << it.col() << "   " << it.value() << std::endl;
+			tripletsL.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
+		}
+	//固定4个值
+	Eigen::SparseMatrix<double> MM(2 * mesh.n_vertices() + 4, 2 * mesh.n_vertices() + 4);
+	//固定值为顶点1和顶点100
+	//寻找网格上一个点和距离其最远的点
+
+	T::VertexHandle vh1 = mesh.vertex_handle(1);
+	int fix1 = vh1.idx();
+	double dis = DBL_MIN;
+	int max_id = -1;
+	for (T::VertexHandle vh : mesh.vertices())
+	{
+		double d = (mesh.point(vh) - mesh.point(vh1)).length();
+		if (d > dis)
+		{
+			dis = d;
+			max_id = vh.idx();
+		}
+	}
+	T::VertexHandle vh2 = mesh.vertex_handle(max_id);
+	int fix2 = vh2.idx();
+	tripletsL.push_back(Eigen::Triplet<double>(2 * nv , fix1, 1));
+	tripletsL.push_back(Eigen::Triplet<double>(fix1, 2*nv,1));
+	tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 1, fix1+nv, 1));
+	tripletsL.push_back(Eigen::Triplet<double>(fix1 + nv, 2 * nv + 1, 1));
+	tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 2, fix2, 1));
+	tripletsL.push_back(Eigen::Triplet<double>(fix2, 2 * nv + 2, 1));
+	tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 3, fix2 + nv, 1));
+	tripletsL.push_back(Eigen::Triplet<double>(fix2 + nv, 2 * nv + 3, 1));
+	MM.setFromTriplets(tripletsL.begin(), tripletsL.end());//设置好MM
+	Eigen::VectorXd b(2 * nv + 4);
+	b(2 * nv + 2) = dis;
+	//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
+	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+	solver.compute(MM);
+	Eigen::VectorXd res = solver.solve(b);//参数化结果的点
+	for (T::VertexHandle vh : mesh.vertices())
+	{
+		int idx = vh.idx();
+		T::Point p(res(idx), res(idx+nv), 0);
+		mesh.set_point(vh, p);
+	}
+	std::cout << "LSCM" << std::endl;
+}
+
 void MyMesh::getVCurvature(std::vector<double>& c)
 {
 	c.resize(mesh.n_vertices());

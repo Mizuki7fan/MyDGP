@@ -213,24 +213,22 @@ Smoothing::Smoothing()
 Parameterization::Parameterization()
 {
 	lName->setText(QStringLiteral("==  参数化  =="));
-	pbCalcTutte = new QPushButton(QStringLiteral("计算Tutte"));
-	//lDistortion=new QLabel(QStringLiteral("扭曲:"));
-	//lDistortionValue = new QLabel();
+	pbCalcTutte = new QPushButton(QStringLiteral("Tutte"));
+	pbCalcLSCM = new QPushButton(QStringLiteral("LSCM"));
 	int seperator_idx = 0;
 	int line_count = 0;
 
 	QGridLayout* layout = new QGridLayout();
 	layout->addWidget(lName, line_count, 0, 1, 2); line_count++;
 	layout->addWidget(pbReturn, line_count, 0, 1, 2); line_count++;
-	//layout->addWidget(lDistortion, line_count, 0, 1, 1);
-	//layout->addWidget(lDistortionValue, line_count, 1, 1, 1); line_count++;
 	layout->addWidget(Seperator[seperator_idx], line_count, 0, 1, 2); seperator_idx++; line_count++;
 	layout->addWidget(pbCalcTutte, line_count, 0, 1, 2); line_count++;
-
+	layout->addWidget(pbCalcLSCM, line_count, 0, 1, 2); line_count++;
 	layout->setAlignment(Qt::AlignTop);
 	layout->setMargin(0);
 	this->setLayout(layout);
 	connect(pbCalcTutte, &QPushButton::clicked, this, [=]() {this->CalcTutteSignal();});
+	connect(pbCalcLSCM, &QPushButton::clicked, this, [=]() {this->CalcLSCMSignal(); });
 }
 
 StateBar::StateBar(int num)

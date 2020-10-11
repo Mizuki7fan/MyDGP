@@ -40,7 +40,7 @@ void MainViewerWidget::CreateParamWidget(void)
 	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralDenoisingSignal(double,double)), meshviewerwidget, SLOT(DoBilateralDenoising(double,double)));
 	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralNormalFilteringSignal(double, double)), meshviewerwidget, SLOT(DoBilateralNormalFiltering(double, double)));
 	connect(meshparamwidget->wChap3, SIGNAL(CalcTutteSignal()), meshviewerwidget, SLOT(CalcTutte()));
-
+	connect(meshparamwidget->wChap3, SIGNAL(CalcLSCMSignal()), meshviewerwidget, SLOT(CalcLSCM()));
 	connect(meshviewerwidget, SIGNAL(toStateBarSignal(QString,QString)), meshparamwidget->Statebar, SLOT(StateBarSetValue(QString, QString)));
 
 	}

@@ -73,6 +73,7 @@ public:
 	void BilateralNormalFiltering(double, double);
 
 	void CalcTutte();
+	void CalcLSCM();
 
 protected://辅助子类的功能
 	void ComputeLaplacian();//构建Laplacian矩阵

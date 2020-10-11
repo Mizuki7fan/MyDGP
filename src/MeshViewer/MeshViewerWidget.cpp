@@ -223,6 +223,11 @@ void MeshViewerWidget::CalcTutte()
 	DGPAlgorithm::CalcTutte(mesh);
 }
 
+void MeshViewerWidget::CalcLSCM()
+{
+	mesh.CalcLSCM();
+}
+
 void MeshViewerWidget::DrawScene(void)
 {
 	glMatrixMode(GL_PROJECTION);

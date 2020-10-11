@@ -16,6 +16,7 @@ public:
 	static void DoBilateralDenoising(MyMesh& mesh, double stdevs,double stdevr);
 	static void DoBilateralNormalFiltering(MyMesh& mesh, double stdevs, double stdevr);
 	static void CalcTutte(MyMesh& mesh);
+	static void CalcLSCM(MyMesh& mesh);
 private:
 
 };
