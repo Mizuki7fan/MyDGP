@@ -42,6 +42,12 @@ void DGPAlgorithm::CalcTutte(MyMesh& mesh)
 	mesh.CalcTutte();
 }
 
-void DGPAlgorithm::CalcLSCM(MyMesh& mesh)
+void DGPAlgorithm::CalcLSCM(MyMesh& mesh,int i)
 {
+	mesh.CalcLSCM(i);
+}
+
+void DGPAlgorithm::CalcABF(MyMesh& mesh)
+{
+	mesh.CalcABF();
 }

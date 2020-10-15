@@ -30,6 +30,8 @@ void MainViewerWidget::CreateParamWidget(void)
 {
 	meshparamwidget = new MeshParamWidget();
 	connect(meshparamwidget, SIGNAL(RedoSignal()), meshviewerwidget, SLOT(Redo()));
+	connect(meshviewerwidget, SIGNAL(toStateBarSignal(QString, QString)), meshparamwidget->Statebar, SLOT(StateBarSetValue(QString, QString)));
+
 	connect(meshparamwidget->wControlPanel, SIGNAL(openDebug()), meshviewerwidget, SLOT(OpenDebug()));
 	connect(meshparamwidget->wGeneral, SIGNAL(PrintInfo()), meshviewerwidget, SLOT(PrintMeshInfo()));
 	connect(meshparamwidget->wGeneral, SIGNAL(CalcVolumeSignal()),meshviewerwidget,SLOT(CalcMeshVolume()));
@@ -40,8 +42,8 @@ void MainViewerWidget::CreateParamWidget(void)
 	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralDenoisingSignal(double,double)), meshviewerwidget, SLOT(DoBilateralDenoising(double,double)));
 	connect(meshparamwidget->wChap2, SIGNAL(DoBilateralNormalFilteringSignal(double, double)), meshviewerwidget, SLOT(DoBilateralNormalFiltering(double, double)));
 	connect(meshparamwidget->wChap3, SIGNAL(CalcTutteSignal()), meshviewerwidget, SLOT(CalcTutte()));
-	connect(meshparamwidget->wChap3, SIGNAL(CalcLSCMSignal()), meshviewerwidget, SLOT(CalcLSCM()));
-	connect(meshviewerwidget, SIGNAL(toStateBarSignal(QString,QString)), meshparamwidget->Statebar, SLOT(StateBarSetValue(QString, QString)));
+	connect(meshparamwidget->wChap3, SIGNAL(CalcLSCMSignal(int)), meshviewerwidget, SLOT(CalcLSCM(int)));
+	connect(meshparamwidget->wChap3, SIGNAL(CalcABFSignal()), meshviewerwidget, SLOT(CalcABF()));
 
 	}
 

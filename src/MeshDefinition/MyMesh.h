@@ -65,15 +65,14 @@ public:
 	double getEdgeLength(int i) const;
 	bool EdgeIsBoundary(int i) const;
 
-
-
-
-
 	void BilateralDenoising(double, double);
 	void BilateralNormalFiltering(double, double);
 
 	void CalcTutte();
-	void CalcLSCM();
+	void CalcLSCM(int);
+	void CalcABF();
+
+
 
 protected://辅助子类的功能
 	void ComputeLaplacian();//构建Laplacian矩阵

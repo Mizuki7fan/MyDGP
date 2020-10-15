@@ -38,7 +38,8 @@ public slots:
 	void DoBilateralDenoising(double,double);
 	void DoBilateralNormalFiltering(double, double);
 	void CalcTutte();
-	void CalcLSCM();
+	void CalcLSCM(int);
+	void CalcABF();
 
 protected:
 	virtual void DrawScene(void) override;

@@ -223,9 +223,14 @@ void MeshViewerWidget::CalcTutte()
 	DGPAlgorithm::CalcTutte(mesh);
 }
 
-void MeshViewerWidget::CalcLSCM()
+void MeshViewerWidget::CalcLSCM(int i)
 {
-	mesh.CalcLSCM();
+	DGPAlgorithm::CalcLSCM(mesh,i);
+}
+
+void MeshViewerWidget::CalcABF()
+{
+	DGPAlgorithm::CalcABF(mesh);
 }
 
 void MeshViewerWidget::DrawScene(void)

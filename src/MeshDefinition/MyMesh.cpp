@@ -168,7 +168,7 @@ void MyMesh::CalcCurvature()
 			std::vector<T::VertexHandle> f_v;
 			for (T::VertexHandle fv : mesh.fv_range(fh))
 				f_v.push_back(fv);//取面的3个点
-			double angle0=0, angle1=0, angle2=0;
+			double angle0 = 0, angle1 = 0, angle2 = 0;
 			T::Point p0 = mesh.point(f_v[0]), p1 = mesh.point(f_v[1]), p2 = mesh.point(f_v[2]);
 			CalcTriangleAngles(p0, p1, p2, angle0, angle1, angle2);
 			v_angledefect[f_v[0].idx()] -= angle0;
@@ -306,7 +306,7 @@ bool MyMesh::Load(std::string s)
 
 bool MyMesh::Write(std::string s)
 {
-	return OpenMesh::IO::write_mesh(mesh,s);
+	return OpenMesh::IO::write_mesh(mesh, s);
 }
 
 void MyMesh::LoadVertex()
@@ -375,7 +375,7 @@ T::Normal MyMesh::getFaceNormal(int i) const
 
 T::Point MyMesh::getPoint(int i) const
 {
-	return mesh.point(mesh.vertex_handle(i)); 
+	return mesh.point(mesh.vertex_handle(i));
 }
 
 void MyMesh::getFaceVertices(int f, int& v1, int& v2, int& v3) const
@@ -601,6 +601,7 @@ void MyMesh::CalcTutte()
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	solver.compute(LL);
 	Eigen::MatrixXd res = solver.solve(b);//参数化结果的点
+	//Eigen::MatrixXd res = A.inverse() * b;
 	for (T::VertexHandle vh : mesh.vertices())
 	{
 		int idx = vh.idx();
@@ -609,14 +610,283 @@ void MyMesh::CalcTutte()
 	}
 }
 
-void MyMesh::CalcLSCM()
+void MyMesh::CalcLSCM(int method_id)
 {
-	//有2种方法，先用赵征宇教的
-	Eigen::MatrixXd a(2, 2);
+	if (method_id == 1)
+	{
+		if (mesh.n_vertices() == 0)
+			return;
+		//有2种方法，先用赵征宇教的，方法1
+		Eigen::MatrixXd a(2, 2);
+		int nv = mesh.n_vertices();
+		a(0, 0) = 0; a(0, 1) = 1; a(1, 0) = -1; a(1, 1) = 0;
+		Eigen::SparseMatrix<double> A(2 * mesh.n_faces(), 2 * mesh.n_vertices());
+		std::vector<Eigen::Triplet<double>> tripletsL;
+		for (T::FaceHandle fh : mesh.faces())
+		{
+			int idx = fh.idx();
+			std::vector<T::VertexHandle> f_v;
+			for (T::VertexHandle fv : mesh.fv_range(fh))
+			{
+				f_v.push_back(fv);
+			}
+			double x0, y0, x1, y1, x2, y2;
+			T::Point p0 = mesh.point(f_v[0]), p1 = mesh.point(f_v[1]), p2 = mesh.point(f_v[2]);
+			double Area = CalcTriangleArea(p0, p1, p2);
+			x0 = 0; y0 = 0;
+			OpenMesh::Vec3d e01 = p1 - p0;
+			x1 = e01.length(), y1 = 0;
+			OpenMesh::Vec3d e02 = p2 - p0;
+			y2 = 2 * Area / e01.length();
+			x2 = sqrt(e02.length() * e02.length() - y2 * y2);
+			Eigen::MatrixXd Mt(2, 3);
+			Mt(0, 0) = y1 - y2; Mt(0, 1) = y2 - y0; Mt(0, 2) = y0 - y1;
+			Mt(1, 0) = x2 - x1; Mt(1, 1) = x0 - x2; Mt(1, 2) = x1 - x0;
+			Mt = Mt / Area;
+			Eigen::MatrixXd Mt_u = a * Mt;
+			//u在前，v在后
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[0].idx(), Mt_u(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[1].idx(), Mt_u(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[2].idx(), Mt_u(0, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[0].idx() + nv, Mt(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[1].idx() + nv, Mt(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[2].idx() + nv, Mt(0, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx + 1, f_v[0].idx(), Mt_u(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx + 1, f_v[1].idx(), Mt_u(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx + 1, f_v[2].idx(), Mt_u(1, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx + 1, f_v[0].idx() + nv, Mt(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx + 1, f_v[1].idx() + nv, Mt(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(2 * idx + 1, f_v[2].idx() + nv, Mt(1, 2)));
+		}
+		A.setFromTriplets(tripletsL.begin(), tripletsL.end());
+		//选择2个点进行固定
+		Eigen::SparseMatrix<double> M = A.transpose() * A;
+		//http://www.suoniao.com/article/22026
+		//稀疏转三元组
+		tripletsL.clear();
+		for (int k = 0; k < M.outerSize(); ++k)
+			for (Eigen::SparseMatrix<double>::InnerIterator it(M, k); it; ++it)
+			{
+				tripletsL.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
+			}
+		//固定4个值
+		Eigen::SparseMatrix<double> MM(2 * mesh.n_vertices() + 4, 2 * mesh.n_vertices() + 4);
+
+		T::VertexHandle vh1 = mesh.vertex_handle(1);
+		int fix1 = vh1.idx();
+		double dis = DBL_MIN;
+		int max_id = -1;
+		for (T::VertexHandle vh : mesh.vertices())
+		{
+			double d = (mesh.point(vh) - mesh.point(vh1)).length();
+			if (d > dis)
+			{
+				dis = d;
+				max_id = vh.idx();
+			}
+		}
+		T::VertexHandle vh2 = mesh.vertex_handle(max_id);
+		int fix2 = vh2.idx();
+		tripletsL.push_back(Eigen::Triplet<double>(2 * nv, fix1, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(fix1, 2 * nv, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 1, fix1 + nv, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(fix1 + nv, 2 * nv + 1, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 2, fix2, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(fix2, 2 * nv + 2, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 3, fix2 + nv, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(fix2 + nv, 2 * nv + 3, 1));
+		MM.setFromTriplets(tripletsL.begin(), tripletsL.end());//设置好MM
+		Eigen::VectorXd b(2 * nv + 4);
+		b(2 * nv + 2) = dis;
+		//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
+		Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+		solver.compute(MM);
+		Eigen::VectorXd res = solver.solve(b);//参数化结果的点
+		for (T::VertexHandle vh : mesh.vertices())
+		{
+			int idx = vh.idx();
+			T::Point p(res(idx), res(idx + nv), 0);
+			mesh.set_point(vh, p);
+		}
+		std::cout << "LSCM use method 1" << std::endl;
+	}
+	else
+	{
+		int nv = mesh.n_vertices();
+		Eigen::SparseMatrix<double> A(2 * nv + 4, 2 * nv + 4);//这个方程存的是能量E关于坐标每个值的偏导数，有2nv个参数且每个参数都有偏导数，所以是2nv*2nv的
+		std::vector<Eigen::Triplet<double>> tripletsL;
+		A.setZero();
+		for (T::FaceHandle fh : mesh.faces())
+		{
+			int idx = fh.idx();
+			std::vector<T::VertexHandle> f_v;
+			for (T::VertexHandle fv : mesh.fv_range(fh))
+			{
+				f_v.push_back(fv);
+			}
+			double x0, y0, x1, y1, x2, y2;
+			T::Point p0 = mesh.point(f_v[0]), p1 = mesh.point(f_v[1]), p2 = mesh.point(f_v[2]);
+			double Area = CalcTriangleArea(p0, p1, p2);
+			x0 = 0; y0 = 0;
+			OpenMesh::Vec3d e01 = p1 - p0;
+			x1 = e01.length(), y1 = 0;
+			OpenMesh::Vec3d e02 = p2 - p0;
+			y2 = 2 * Area / e01.length();
+			x2 = sqrt(e02.length() * e02.length() - y2 * y2);
+			Eigen::MatrixXd S(2, 3);
+			S(0, 0) = y1 - y2; S(0, 1) = y2 - y0; S(0, 2) = y0 - y1;
+			S(1, 0) = x2 - x1; S(1, 1) = x0 - x2; S(1, 2) = x1 - x0;
+			S = S / (2 * Area);
+
+			// 能量的前一半
+			// /partial{E}_{/partial{u_i}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[0].idx(), 2 * S(0, 0) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[1].idx(), 2 * S(0, 0) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[2].idx(), 2 * S(0, 0) * S(0, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[0].idx() + nv, -2 * S(0, 0) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[1].idx() + nv, -2 * S(0, 0) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[2].idx() + nv, -2 * S(0, 0) * S(1, 2)));
+			// /partial{E}_{/partial{u_j}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[0].idx(), 2 * S(0, 1) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[1].idx(), 2 * S(0, 1) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[2].idx(), 2 * S(0, 1) * S(0, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[0].idx() + nv, -2 * S(0, 1) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[1].idx() + nv, -2 * S(0, 1) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[2].idx() + nv, -2 * S(0, 1) * S(1, 2)));
+			// /partial{E}_{/partial{u_k}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[0].idx(), 2 * S(0, 2) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[1].idx(), 2 * S(0, 2) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[2].idx(), 2 * S(0, 2) * S(0, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[0].idx() + nv, -2 * S(0, 2) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[1].idx() + nv, -2 * S(0, 2) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[2].idx() + nv, -2 * S(0, 2) * S(1, 2)));
+
+			// /partial{E}_{/partial{v_i}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[0].idx(), -2 * S(1, 0) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[1].idx(), -2 * S(1, 0) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[2].idx(), -2 * S(1, 0) * S(0, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[0].idx() + nv, 2 * S(1, 0) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[1].idx() + nv, 2 * S(1, 0) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[2].idx() + nv, 2 * S(1, 0) * S(1, 2)));
+			// /partial{E}_{/partial{v_j}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[0].idx(), -2 * S(1, 1) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[1].idx(), -2 * S(1, 1) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[2].idx(), -2 * S(1, 1) * S(0, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[0].idx() + nv, 2 * S(1, 1) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[1].idx() + nv, 2 * S(1, 1) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[2].idx() + nv, 2 * S(1, 1) * S(1, 2)));
+			// /partial{E}_{/partial{u_k}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[0].idx(), -2 * S(1, 2) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[1].idx(), -2 * S(1, 2) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[2].idx(), -2 * S(1, 2) * S(0, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[0].idx() + nv, 2 * S(1, 2) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[1].idx() + nv, 2 * S(1, 2) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[2].idx() + nv, 2 * S(1, 2) * S(1, 2)));
+
+			//能量的后一半
+			// /partial{E}_{/partial{u_i}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[0].idx(), 2 * S(1, 0) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[1].idx(), 2 * S(1, 0) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[2].idx(), 2 * S(1, 0) * S(1, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[0].idx() + nv, 2 * S(1, 0) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[1].idx() + nv, 2 * S(1, 0) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx(), f_v[2].idx() + nv, 2 * S(1, 0) * S(0, 2)));
+			// /partial{E}_{/partial{u_j}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[0].idx(), 2 * S(1, 1) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[1].idx(), 2 * S(1, 1) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[2].idx(), 2 * S(1, 1) * S(1, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[0].idx() + nv, 2 * S(1, 1) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[1].idx() + nv, 2 * S(1, 1) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx(), f_v[2].idx() + nv, 2 * S(1, 1) * S(0, 2)));
+			// /partial{E}_{/partial{u_k}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[0].idx(), 2 * S(1, 2) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[1].idx(), 2 * S(1, 2) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[2].idx(), 2 * S(1, 2) * S(1, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[0].idx() + nv, 2 * S(1, 2) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[1].idx() + nv, 2 * S(1, 2) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx(), f_v[2].idx() + nv, 2 * S(1, 2) * S(0, 2)));
+
+			// /partial{E}_{/partial{v_i}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[0].idx(), 2 * S(0, 0) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[1].idx(), 2 * S(0, 0) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[2].idx(), 2 * S(0, 0) * S(1, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[0].idx() + nv, 2 * S(0, 0) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[1].idx() + nv, 2 * S(0, 0) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[0].idx() + nv, f_v[2].idx() + nv, 2 * S(0, 0) * S(0, 2)));
+			// /partial{E}_{/partial{v_j}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[0].idx(), 2 * S(0, 1) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[1].idx(), 2 * S(0, 1) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[2].idx(), 2 * S(0, 1) * S(1, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[0].idx() + nv, 2 * S(0, 1) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[1].idx() + nv, 2 * S(0, 1) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[1].idx() + nv, f_v[2].idx() + nv, 2 * S(0, 1) * S(0, 2)));
+			// /partial{E}_{/partial{u_k}}
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[0].idx(), 2 * S(0, 2) * S(1, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[1].idx(), 2 * S(0, 2) * S(1, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[2].idx(), 2 * S(0, 2) * S(1, 2)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[0].idx() + nv, 2 * S(0, 2) * S(0, 0)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[1].idx() + nv, 2 * S(0, 2) * S(0, 1)));
+			tripletsL.push_back(Eigen::Triplet<double>(f_v[2].idx() + nv, f_v[2].idx() + nv, 2 * S(0, 2) * S(0, 2)));
+		}
+		//设置边界条件
+		T::VertexHandle vh1 = mesh.vertex_handle(1);
+		int fix1 = vh1.idx();
+		double dis = DBL_MIN;
+		int max_id = -1;
+		for (T::VertexHandle vh : mesh.vertices())
+		{
+			double d = (mesh.point(vh) - mesh.point(vh1)).length();
+			if (d > dis)
+			{
+				dis = d;
+				max_id = vh.idx();
+			}
+		}
+		T::VertexHandle vh2 = mesh.vertex_handle(max_id);
+		int fix2 = vh2.idx();
+		tripletsL.push_back(Eigen::Triplet<double>(2 * nv, fix1, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(fix1, 2 * nv, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 1, fix1 + nv, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(fix1 + nv, 2 * nv + 1, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 2, fix2, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(fix2, 2 * nv + 2, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 3, fix2 + nv, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(fix2 + nv, 2 * nv + 3, 1));
+		A.setFromTriplets(tripletsL.begin(), tripletsL.end());//设置好A
+		Eigen::VectorXd b(2 * nv + 4);
+		b.setZero();
+		b(2 * nv + 2) = dis;
+		//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
+		Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+		solver.compute(A);
+		Eigen::VectorXd res = solver.solve(b);//参数化结果的点
+		for (T::VertexHandle vh : mesh.vertices())
+		{
+			int idx = vh.idx();
+			T::Point p(res(idx), res(idx + nv), 0);
+			mesh.set_point(vh, p);
+		}
+		std::cout << "LSCM use method 2" << std::endl;
+	}
+}
+
+void MyMesh::CalcABF()
+{
+	std::cout << "准备计算ABF" << std::endl;
 	int nv = mesh.n_vertices();
-	a(0, 0) = 0; a(0, 1) = 1; a(1, 0) = -1; a(1, 1) = 0;
-	Eigen::SparseMatrix<double> A(2 * mesh.n_faces(), 2 * mesh.n_vertices());
+	int nf = mesh.n_faces();
+	//先算内部点的数量
+	int n_bnd_v = 0;
+	for (T::VertexHandle vh : mesh.vertices())
+		if (!mesh.is_boundary(vh))
+			n_bnd_v++;
+	Eigen::VectorXd b(3 * nf + nf + n_bnd_v + n_bnd_v);
+	b.setZero();
+	Eigen::SparseMatrix<double> A(3 * nf + nf + n_bnd_v + n_bnd_v, 3 * nf + nf + n_bnd_v + n_bnd_v);
 	std::vector<Eigen::Triplet<double>> tripletsL;
+	std::vector < std::vector<std::pair<int, double>>> FV;//存放面的三个顶点信息
+	FV.resize(nf);
+	std::vector<double> Angledefect(nv, 0);
 	for (T::FaceHandle fh : mesh.faces())
 	{
 		int idx = fh.idx();
@@ -625,89 +895,253 @@ void MyMesh::CalcLSCM()
 		{
 			f_v.push_back(fv);
 		}
-		double x0, y0, x1, y1, x2, y2;
 		T::Point p0 = mesh.point(f_v[0]), p1 = mesh.point(f_v[1]), p2 = mesh.point(f_v[2]);
-		double Area = CalcTriangleArea(p0, p1, p2);
-		x0 = 0; y0 = 0;
-		OpenMesh::Vec3d e01 = p1 - p0;
-		x1 = e01.length(), y1 = 0;
-		OpenMesh::Vec3d e02 = p2 - p0;
-		y2 = 2*Area / e01.length();
-		x2 = sqrt(e02.length() * e02.length() - y2 * y2);
-		Eigen::MatrixXd Mt(2, 3);
-		Mt(0, 0) = y1 - y2; Mt(0, 1) = y2 - y0; Mt(0, 2) = y0 - y1;
-		Mt(1, 0) = x2 - x1; Mt(1, 1) = x0 - x2; Mt(1, 2) = x1 - x0;
-		Mt = Mt / Area;
-		Eigen::MatrixXd Mt_u = a * Mt;
-		//u在前，v在后
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[0].idx(), Mt_u(0, 0)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[1].idx(), Mt_u(0, 1)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[2].idx(), Mt_u(0, 2)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[0].idx()+nv, Mt(0, 0)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[1].idx()+nv, Mt(0, 1)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx, f_v[2].idx()+nv, Mt(0, 2)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[0].idx(), Mt_u(1, 0)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[1].idx(), Mt_u(1, 1)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[2].idx(), Mt_u(1, 2)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[0].idx() + nv, Mt(1, 0)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[1].idx() + nv, Mt(1, 1)));
-		tripletsL.push_back(Eigen::Triplet<double>(2 * idx+1, f_v[2].idx() + nv, Mt(1, 2)));
+		double angle0, angle1, angle2;
+		CalcTriangleAngles(p0, p1, p2, angle0, angle1, angle2);
+		Angledefect[f_v[0].idx()] += angle0;
+		Angledefect[f_v[1].idx()] += angle1;
+		Angledefect[f_v[2].idx()] += angle2;
+		FV[idx].resize(3);
+		//存面的三个点的信息
+		FV[idx][0].first = f_v[0].idx(); FV[idx][0].second = angle0;
+		FV[idx][1].first = f_v[1].idx(); FV[idx][1].second = angle1;
+		FV[idx][2].first = f_v[2].idx(); FV[idx][2].second = angle2;
 	}
-	A.setFromTriplets(tripletsL.begin(), tripletsL.end());
-	//选择2个点进行固定
-	Eigen::SparseMatrix<double> M = A.transpose() * A;
-	std::cout <<"rate="<< M.nonZeros()/(mesh.n_vertices()*mesh.n_vertices()) << std::endl;
-	//http://www.suoniao.com/article/22026
-	//稀疏转三元组
-	tripletsL.clear();	
-	for (int k = 0; k < M.outerSize(); ++k)
-		for (Eigen::SparseMatrix<double>::InnerIterator it(M, k); it; ++it)
+	for (int fid = 0; fid < nf; fid++)
+	{
+		std::vector<double> beta(3);
+		std::vector<int> vid(3);
+		beta[0] = FV[fid][0].second; vid[0] = FV[fid][0].first;
+		beta[1] = FV[fid][1].second; vid[1] = FV[fid][1].first;
+		beta[2] = FV[fid][2].second; vid[2] = FV[fid][2].first;
+		for (int i = 0; i < 3; i++)
 		{
-			//std::cout << it.row() << "   " << it.col() << "   " << it.value() << std::endl;
-			tripletsL.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
+			if (!mesh.is_boundary(mesh.vertex_handle(vid[i])))
+			{
+				beta[i] = beta[i] * 2 * M_PI / Angledefect[vid[i]];
+				FV[fid][i].second = beta[i];//修正角度值
+			}
+			//对于每个角度的导数值等于0的能量约束
+			tripletsL.push_back(Eigen::Triplet<double>(3 * fid + i, 3 * fid + i, 2 / (beta[i] * beta[i])));
+			b[3 * fid + i] = 0;
 		}
-	//固定4个值
-	Eigen::SparseMatrix<double> MM(2 * mesh.n_vertices() + 4, 2 * mesh.n_vertices() + 4);
-	//固定值为顶点1和顶点100
-	//寻找网格上一个点和距离其最远的点
+		//添加面的内角和为PI的约束
+		tripletsL.push_back(Eigen::Triplet<double>(3 * nf + fid, 3 * fid, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(3 * nf + fid, 3 * fid + 1, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(3 * nf + fid, 3 * fid + 2, 1));
 
-	T::VertexHandle vh1 = mesh.vertex_handle(1);
-	int fix1 = vh1.idx();
-	double dis = DBL_MIN;
-	int max_id = -1;
+		tripletsL.push_back(Eigen::Triplet<double>(3 * fid, 3 * nf + fid, 1));
+		tripletsL.push_back(Eigen::Triplet<double>(3 * fid + 1, 3 * nf + fid,1));
+		tripletsL.push_back(Eigen::Triplet<double>(3 * fid + 2, 3 * nf + fid, 1));
+
+		b[3 * nf + fid] = M_PI - beta[0] - beta[1] - beta[2];
+	}
+	int n_bnd_idx = 0;//表示当前内部点的序号，首先周围一圈的角度之和得为2PI，还有就是重建约束，需要确定righthand和lefthand
+	
 	for (T::VertexHandle vh : mesh.vertices())
 	{
-		double d = (mesh.point(vh) - mesh.point(vh1)).length();
-		if (d > dis)
-		{
-			dis = d;
-			max_id = vh.idx();
+		if (mesh.is_boundary(vh))
+			continue;
+		else
+		{//设置内角和等于2pi的约束
+			std::map<int, int> v_flag;//用于记录邻接点的访问情况,未访问则记录为0
+			for (T::VertexHandle vh2 : mesh.vv_range(vh))
+				v_flag[vh2.idx()] = 0;
+			double sigma = 0;
+			std::map<int,std::map<int, int>> FV_flag;
+			for (T::FaceHandle vfh : mesh.vf_range(vh))
+			{
+				std::vector<int> fv_flaginfo;
+				int fid = vfh.idx();
+				for (int fv_id = 0; fv_id < 3; fv_id++)
+				{
+					if (FV[fid][fv_id].first != vh.idx())
+					{
+						tripletsL.push_back(Eigen::Triplet<double>(4 * nf + n_bnd_idx, 3 * fid + fv_id, 1));
+						tripletsL.push_back(Eigen::Triplet<double>(3 * fid + fv_id, 4 * nf + n_bnd_idx, 1));
+						sigma += FV[fid][fv_id].second;
+						FV_flag[fid][FV[fid][fv_id].first] = 0;
+					}
+					else
+						FV_flag[fid][FV[fid][fv_id].first] = -2;//表示这个顶点是面的中心点
+				}
+			}
+			//FV_flag记录了一个面的三个顶点的正负值
+			b[4 * nf + n_bnd_idx] = 2 * M_PI - sigma;
+			std::vector<int> last_v, now_v;//记录上一个访问面的三个顶点和当前访问面的三个顶点
+			int common_v;
+			int first = 1; 
+			for (T::FaceHandle vfh : mesh.vf_range(vh))
+			{
+				if (FV_flag.count(vfh.idx()) == 0)
+					std::cerr << "未收录的面" << std::endl;
+				//std::cout << vfh.idx() << std::endl;
+				last_v = now_v;
+				now_v.clear();
+				for (auto& a : FV_flag[vfh.idx()])//遍历面的所有顶点
+				{
+					if (a.second != -2)
+					{
+						now_v.push_back(a.first);
+						if (first)
+						{
+							common_v = a.first;
+						}
+					}
+				}
+				if (!first)
+				{
+					if (last_v[0] == now_v[0] || last_v[0] == now_v[1])
+						common_v = last_v[0];
+					if (last_v[1] == now_v[0] || last_v[1] == now_v[1])
+						common_v = last_v[1];
+				}
+				else 
+					first = false;
+				for (auto &a : FV_flag[vfh.idx()])
+				{
+					if (a.second != -2)
+					{
+						if (a.first==common_v)
+							a.second = -1;
+						else a.second = 1;
+						if (first)
+						{
+							a.second = 1;
+						}
+					}
+				}
+			}
+			double right_value = 0;
+			int row = 4 * nf + n_bnd_v + n_bnd_idx;//矩阵行号
+			for (auto a : FV_flag)//遍历每个相邻的面
+			{
+				int fid = a.first;
+				for (int idx=0;idx<3;idx++)
+				{
+					int col = 3 * fid + idx;
+					double value =a.second[FV[fid][idx].first]* atan(FV[fid][idx].second);//根据求出来的符号值进行赋值
+					right_value += -a.second[FV[fid][idx].first] * log(sin(FV[fid][idx].second));
+					tripletsL.push_back(Eigen::Triplet<double>(row,col,value));
+					tripletsL.push_back(Eigen::Triplet<double>( col,row, 1));
+				}
+			}
+			b[row] = right_value;
+			n_bnd_idx++;
 		}
 	}
-	T::VertexHandle vh2 = mesh.vertex_handle(max_id);
-	int fix2 = vh2.idx();
-	tripletsL.push_back(Eigen::Triplet<double>(2 * nv , fix1, 1));
-	tripletsL.push_back(Eigen::Triplet<double>(fix1, 2*nv,1));
-	tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 1, fix1+nv, 1));
-	tripletsL.push_back(Eigen::Triplet<double>(fix1 + nv, 2 * nv + 1, 1));
-	tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 2, fix2, 1));
-	tripletsL.push_back(Eigen::Triplet<double>(fix2, 2 * nv + 2, 1));
-	tripletsL.push_back(Eigen::Triplet<double>(2 * nv + 3, fix2 + nv, 1));
-	tripletsL.push_back(Eigen::Triplet<double>(fix2 + nv, 2 * nv + 3, 1));
-	MM.setFromTriplets(tripletsL.begin(), tripletsL.end());//设置好MM
-	Eigen::VectorXd b(2 * nv + 4);
-	b(2 * nv + 2) = dis;
+	A.setFromTriplets(tripletsL.begin(), tripletsL.end());//设置好A
 	//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-	solver.compute(MM);
-	Eigen::VectorXd res = solver.solve(b);//参数化结果的点
+	solver.compute(A);
+	Eigen::VectorXd res = solver.solve(b);//参数化结果的点,解出角度值
+
+	Eigen::SparseMatrix<double> A2(2*nv+4,2*nv+4);
+	Eigen::VectorXd b2(2*nv+4);
+	b2.setZero();
+	std::vector<Eigen::Triplet<double>> tripletsL2;
+
+	for (T::FaceHandle fh : mesh.faces())
+	{
+		int fid = fh.idx();
+		int vid0 = FV[fid][0].first, vid1 = FV[fid][1].first, vid2 = FV[fid][2].first;
+		Eigen::MatrixXd Mt(2, 2);
+		double alpha0 = res(3 * fid), alpha1 = res(3 * fid + 1), alpha2 = res(3 * fid + 2);//求出的角度值
+		double q = sin(alpha2) / sin(alpha0);
+		Mt(0, 0) = q * cos(alpha1); Mt(0, 1) = q * (-sin(alpha1));
+		Mt(1, 0) = q * sin(alpha1); Mt(1, 1) = q * cos(alpha1);
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0, vid0, 2));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0, vid1, -2*(1-Mt(0,0))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0, vid2, -2 * Mt(0, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0, nv+vid1, 2 * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0, nv+vid2, -2 * Mt(0, 1)));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid0, -2*(1-Mt(0,0))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid1, 2 * (1 - Mt(0, 0))* (1 - Mt(0, 0))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid2, 2 * Mt(0, 0) * (1 - Mt(0, 0))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid1, -2 * (1 - Mt(0, 0)) * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid2, 2 * (1 - Mt(0, 0)) * Mt(0, 1)));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid0, -2 * Mt(0,0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid1, 2 * (1 - Mt(0, 0)) * Mt(0, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid2, 2 * Mt(0, 0) * Mt(0, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid1, -2 * Mt(0, 0) * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid2, 2 * Mt(0, 0) * Mt(0, 1)));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1+nv, vid0, 2 * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, -2 * (1 - Mt(0, 0)) * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2, -2 * Mt(0, 0) * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, 2 * Mt(0, 1) * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2, -2 * Mt(0, 1) * Mt(0, 1)));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2 + nv, vid0, -2 * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2 + nv, vid1, 2 * (1 - Mt(0, 0)) * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2 + nv, vid2, 2 * Mt(0, 0) * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2 + nv, vid1, -2 * Mt(0, 1) * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2 + nv, vid2, 2 * Mt(0, 1) * Mt(0, 1)));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid1, 2 * Mt(1, 0)* Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid2, -2 * Mt(1, 0) * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid0+nv, 2 * Mt(1, 0) ));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid1+nv, -2 * Mt(1, 0) *(1- Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid2+nv, -2 * Mt(1, 0) * Mt(1, 1)));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid1, -2 * Mt(1, 0) * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid2, 2 * Mt(1, 0) * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid0 + nv, -2 * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid1 + nv, 2 * Mt(1, 0) * (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid2 + nv, 2 * Mt(1, 0) * Mt(1, 1)));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid1, 2  * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid2, -2  * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid0 + nv, 2 ));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid1 + nv, -2 * (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid2 + nv, -2 * Mt(1, 1)));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, -2 * Mt(1, 0)* (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2, 2 * Mt(1, 0)* (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid0 + nv, -2* (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1 + nv, 2 * (1 - Mt(1, 1))* (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2 + nv, 2 * Mt(1, 1)*(1 - Mt(1, 1))));
+
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, -2 * Mt(1, 0) * Mt(1, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2, 2 * Mt(1, 0) * Mt(1, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid0 + nv, -2 * Mt(1, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1 + nv, 2 * (1 - Mt(1, 1)) * Mt(1, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2 + nv, 2 * Mt(1, 1) * Mt(1, 1)));
+	}
+	T::EdgeHandle eh = mesh.edge_handle(2);
+	T::VertexHandle v1 = mesh.to_vertex_handle(mesh.halfedge_handle(eh,0));
+	T::VertexHandle v2 = mesh.from_vertex_handle(mesh.halfedge_handle(eh, 0));
+	double length = mesh.calc_edge_length(eh);
+	tripletsL2.push_back(Eigen::Triplet<double>(2*nv,v1.idx(),1));
+	tripletsL2.push_back(Eigen::Triplet<double>(v1.idx(), 2*nv, 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(2 * nv + 1, v1.idx()+nv, 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(v1.idx()+nv, 2 * nv + 1, 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(2 * nv + 2, v2.idx(), 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(v2.idx(), 2 * nv + 2, 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(2 * nv + 3, v2.idx() + nv, 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(v2.idx() + nv, 2 * nv + 3, 1));
+	b2[2 * nv + 2] = length;
+
+	A2.setFromTriplets(tripletsL2.begin(), tripletsL2.end());//设置好A
+//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
+	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver2;
+	solver2.compute(A2);
+	Eigen::VectorXd res2 = solver.solve(b2);//参数化结果的点,解出角度值
 	for (T::VertexHandle vh : mesh.vertices())
 	{
 		int idx = vh.idx();
-		T::Point p(res(idx), res(idx+nv), 0);
+		T::Point p(res2(idx), res2(idx + nv), 0);
 		mesh.set_point(vh, p);
 	}
-	std::cout << "LSCM" << std::endl;
+
+
+	std::ofstream R("res.txt");
+	R << res;
+	R.close();
+
 }
 
 void MyMesh::getVCurvature(std::vector<double>& c)

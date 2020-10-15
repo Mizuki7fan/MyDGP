@@ -122,12 +122,15 @@ public:
 private:
 signals:
 	void CalcTutteSignal();
-	void CalcLSCMSignal();
+	void CalcLSCMSignal(int);
+	void CalcABFSignal();
 
 private:
 	int SeperatorCount = 1;
 	QPushButton* pbCalcTutte;
 	QPushButton* pbCalcLSCM;
+	QPushButton* pbCalcLSCM2;
+	QPushButton* pbABF;//保角映射
 	//QLabel* lDistortion;//提示当前扭曲
 	//QLabel* lDistortionValue;//显示当前扭曲的数值
 };
