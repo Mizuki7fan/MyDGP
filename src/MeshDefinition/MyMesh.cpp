@@ -872,6 +872,8 @@ void MyMesh::CalcLSCM(int method_id)
 
 void MyMesh::CalcABF()
 {
+	std::ofstream R("res.txt");
+	//R.close();
 	std::cout << "准备计算ABF" << std::endl;
 	int nv = mesh.n_vertices();
 	int nf = mesh.n_faces();
@@ -931,13 +933,13 @@ void MyMesh::CalcABF()
 		tripletsL.push_back(Eigen::Triplet<double>(3 * nf + fid, 3 * fid + 2, 1));
 
 		tripletsL.push_back(Eigen::Triplet<double>(3 * fid, 3 * nf + fid, 1));
-		tripletsL.push_back(Eigen::Triplet<double>(3 * fid + 1, 3 * nf + fid,1));
+		tripletsL.push_back(Eigen::Triplet<double>(3 * fid + 1, 3 * nf + fid, 1));
 		tripletsL.push_back(Eigen::Triplet<double>(3 * fid + 2, 3 * nf + fid, 1));
 
 		b[3 * nf + fid] = M_PI - beta[0] - beta[1] - beta[2];
 	}
 	int n_bnd_idx = 0;//表示当前内部点的序号，首先周围一圈的角度之和得为2PI，还有就是重建约束，需要确定righthand和lefthand
-	
+
 	for (T::VertexHandle vh : mesh.vertices())
 	{
 		if (mesh.is_boundary(vh))
@@ -948,7 +950,7 @@ void MyMesh::CalcABF()
 			for (T::VertexHandle vh2 : mesh.vv_range(vh))
 				v_flag[vh2.idx()] = 0;
 			double sigma = 0;
-			std::map<int,std::map<int, int>> FV_flag;
+			std::map<int, std::map<int, int>> FV_flag;
 			for (T::FaceHandle vfh : mesh.vf_range(vh))
 			{
 				std::vector<int> fv_flaginfo;
@@ -970,7 +972,7 @@ void MyMesh::CalcABF()
 			b[4 * nf + n_bnd_idx] = 2 * M_PI - sigma;
 			std::vector<int> last_v, now_v;//记录上一个访问面的三个顶点和当前访问面的三个顶点
 			int common_v;
-			int first = 1; 
+			int first = 1;
 			for (T::FaceHandle vfh : mesh.vf_range(vh))
 			{
 				if (FV_flag.count(vfh.idx()) == 0)
@@ -996,13 +998,13 @@ void MyMesh::CalcABF()
 					if (last_v[1] == now_v[0] || last_v[1] == now_v[1])
 						common_v = last_v[1];
 				}
-				else 
+				else
 					first = false;
-				for (auto &a : FV_flag[vfh.idx()])
+				for (auto& a : FV_flag[vfh.idx()])
 				{
 					if (a.second != -2)
 					{
-						if (a.first==common_v)
+						if (a.first == common_v)
 							a.second = -1;
 						else a.second = 1;
 						if (first)
@@ -1017,13 +1019,15 @@ void MyMesh::CalcABF()
 			for (auto a : FV_flag)//遍历每个相邻的面
 			{
 				int fid = a.first;
-				for (int idx=0;idx<3;idx++)
+				for (int idx = 0; idx < 3; idx++)
 				{
+					if (a.second[FV[fid][idx].first] == -2)
+						continue;
 					int col = 3 * fid + idx;
-					double value =a.second[FV[fid][idx].first]* atan(FV[fid][idx].second);//根据求出来的符号值进行赋值
+					double value = a.second[FV[fid][idx].first] /tan(FV[fid][idx].second);//根据求出来的符号值进行赋值
 					right_value += -a.second[FV[fid][idx].first] * log(sin(FV[fid][idx].second));
-					tripletsL.push_back(Eigen::Triplet<double>(row,col,value));
-					tripletsL.push_back(Eigen::Triplet<double>( col,row, 1));
+					tripletsL.push_back(Eigen::Triplet<double>(row, col, value));
+					tripletsL.push_back(Eigen::Triplet<double>(col, row, value));
 				}
 			}
 			b[row] = right_value;
@@ -1031,45 +1035,54 @@ void MyMesh::CalcABF()
 		}
 	}
 	A.setFromTriplets(tripletsL.begin(), tripletsL.end());//设置好A
+	//R << "A:" << std::endl << A << std::endl << "b:" << std::endl << b << std::endl;
+	//R << "denseA:" << std::endl << A.toDense().inverse() << std::endl;
+
 	//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	solver.compute(A);
+	//R << "b:" << b << std::endl;
+	//R.close();
 	Eigen::VectorXd res = solver.solve(b);//参数化结果的点,解出角度值
 
-	Eigen::SparseMatrix<double> A2(2*nv+4,2*nv+4);
-	Eigen::VectorXd b2(2*nv+4);
+	R << "A:" << std::endl << A.toDense() << std::endl << "b:" << std::endl << b << std::endl << "res:" << std::endl << res << std::endl;
+	Eigen::SparseMatrix<double> A2(2 * nv + 4, 2 * nv + 4);
+	Eigen::VectorXd b2(2 * nv + 4);
 	b2.setZero();
 	std::vector<Eigen::Triplet<double>> tripletsL2;
-
+	R << "ALPHA:" << std::endl;
 	for (T::FaceHandle fh : mesh.faces())
 	{
 		int fid = fh.idx();
 		int vid0 = FV[fid][0].first, vid1 = FV[fid][1].first, vid2 = FV[fid][2].first;
 		Eigen::MatrixXd Mt(2, 2);
-		double alpha0 = res(3 * fid), alpha1 = res(3 * fid + 1), alpha2 = res(3 * fid + 2);//求出的角度值
+		double alpha0 = res(3 * fid) + FV[fid][0].second, alpha1 = res(3 * fid + 1) + FV[fid][1].second, alpha2 = res(3 * fid + 2) + FV[fid][2].second;//求出的角度值
+		//double alpha0 = res(3 * fid) - FV[fid][0].second, alpha1 = res(3 * fid + 1) - FV[fid][1].second, alpha2 = res(3 * fid + 2) - FV[fid][2].second;//求出的角度值
+
+		R<< alpha0 << "    " << alpha1 << "    " << alpha2 << std::endl;
 		double q = sin(alpha2) / sin(alpha0);
 		Mt(0, 0) = q * cos(alpha1); Mt(0, 1) = q * (-sin(alpha1));
 		Mt(1, 0) = q * sin(alpha1); Mt(1, 1) = q * cos(alpha1);
 
 		tripletsL2.push_back(Eigen::Triplet<double>(vid0, vid0, 2));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid0, vid1, -2*(1-Mt(0,0))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0, vid1, -2 * (1 - Mt(0, 0))));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid0, vid2, -2 * Mt(0, 0)));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid0, nv+vid1, 2 * Mt(0, 1)));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid0, nv+vid2, -2 * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0, nv + vid1, 2 * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0, nv + vid2, -2 * Mt(0, 1)));
 
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid0, -2*(1-Mt(0,0))));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid1, 2 * (1 - Mt(0, 0))* (1 - Mt(0, 0))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid0, -2 * (1 - Mt(0, 0))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid1, 2 * (1 - Mt(0, 0)) * (1 - Mt(0, 0))));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid2, 2 * Mt(0, 0) * (1 - Mt(0, 0))));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid1, -2 * (1 - Mt(0, 0)) * Mt(0, 1)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid2, 2 * (1 - Mt(0, 0)) * Mt(0, 1)));
 
-		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid0, -2 * Mt(0,0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid0, -2 * Mt(0, 0)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid1, 2 * (1 - Mt(0, 0)) * Mt(0, 0)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid2, 2 * Mt(0, 0) * Mt(0, 0)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid1, -2 * Mt(0, 0) * Mt(0, 1)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid2, 2 * Mt(0, 0) * Mt(0, 1)));
 
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1+nv, vid0, 2 * Mt(0, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid0, 2 * Mt(0, 1)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, -2 * (1 - Mt(0, 0)) * Mt(0, 1)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2, -2 * Mt(0, 0) * Mt(0, 1)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, 2 * Mt(0, 1) * Mt(0, 1)));
@@ -1081,11 +1094,11 @@ void MyMesh::CalcABF()
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2 + nv, vid1, -2 * Mt(0, 1) * Mt(0, 1)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2 + nv, vid2, 2 * Mt(0, 1) * Mt(0, 1)));
 
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid1, 2 * Mt(1, 0)* Mt(1, 0)));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid2, -2 * Mt(1, 0) * Mt(1, 0)));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid0+nv, 2 * Mt(1, 0) ));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid1+nv, -2 * Mt(1, 0) *(1- Mt(1, 1))));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 , vid2+nv, -2 * Mt(1, 0) * Mt(1, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid1, 2 * Mt(1, 0) * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid2, -2 * Mt(1, 0) * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid0 + nv, 2 * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid1 + nv, -2 * Mt(1, 0) * (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1, vid2 + nv, -2 * Mt(1, 0) * Mt(1, 1)));
 
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid1, -2 * Mt(1, 0) * Mt(1, 0)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid2, 2 * Mt(1, 0) * Mt(1, 0)));
@@ -1093,17 +1106,17 @@ void MyMesh::CalcABF()
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid1 + nv, 2 * Mt(1, 0) * (1 - Mt(1, 1))));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid2, vid2 + nv, 2 * Mt(1, 0) * Mt(1, 1)));
 
-		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid1, 2  * Mt(1, 0)));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid2, -2  * Mt(1, 0)));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid0 + nv, 2 ));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid1 + nv, -2 * (1 - Mt(1, 1))));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid0+nv, vid2 + nv, -2 * Mt(1, 1)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0 + nv, vid1, 2 * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0 + nv, vid2, -2 * Mt(1, 0)));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0 + nv, vid0 + nv, 2));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0 + nv, vid1 + nv, -2 * (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid0 + nv, vid2 + nv, -2 * Mt(1, 1)));
 
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, -2 * Mt(1, 0)* (1 - Mt(1, 1))));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2, 2 * Mt(1, 0)* (1 - Mt(1, 1))));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid0 + nv, -2* (1 - Mt(1, 1))));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1 + nv, 2 * (1 - Mt(1, 1))* (1 - Mt(1, 1))));
-		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2 + nv, 2 * Mt(1, 1)*(1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, -2 * Mt(1, 0) * (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2, 2 * Mt(1, 0) * (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid0 + nv, -2 * (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1 + nv, 2 * (1 - Mt(1, 1)) * (1 - Mt(1, 1))));
+		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2 + nv, 2 * Mt(1, 1) * (1 - Mt(1, 1))));
 
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid1, -2 * Mt(1, 0) * Mt(1, 1)));
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2, 2 * Mt(1, 0) * Mt(1, 1)));
@@ -1112,13 +1125,13 @@ void MyMesh::CalcABF()
 		tripletsL2.push_back(Eigen::Triplet<double>(vid1 + nv, vid2 + nv, 2 * Mt(1, 1) * Mt(1, 1)));
 	}
 	T::EdgeHandle eh = mesh.edge_handle(2);
-	T::VertexHandle v1 = mesh.to_vertex_handle(mesh.halfedge_handle(eh,0));
+	T::VertexHandle v1 = mesh.to_vertex_handle(mesh.halfedge_handle(eh, 0));
 	T::VertexHandle v2 = mesh.from_vertex_handle(mesh.halfedge_handle(eh, 0));
 	double length = mesh.calc_edge_length(eh);
-	tripletsL2.push_back(Eigen::Triplet<double>(2*nv,v1.idx(),1));
-	tripletsL2.push_back(Eigen::Triplet<double>(v1.idx(), 2*nv, 1));
-	tripletsL2.push_back(Eigen::Triplet<double>(2 * nv + 1, v1.idx()+nv, 1));
-	tripletsL2.push_back(Eigen::Triplet<double>(v1.idx()+nv, 2 * nv + 1, 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(2 * nv, v1.idx(), 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(v1.idx(), 2 * nv, 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(2 * nv + 1, v1.idx() + nv, 1));
+	tripletsL2.push_back(Eigen::Triplet<double>(v1.idx() + nv, 2 * nv + 1, 1));
 	tripletsL2.push_back(Eigen::Triplet<double>(2 * nv + 2, v2.idx(), 1));
 	tripletsL2.push_back(Eigen::Triplet<double>(v2.idx(), 2 * nv + 2, 1));
 	tripletsL2.push_back(Eigen::Triplet<double>(2 * nv + 3, v2.idx() + nv, 1));
@@ -1126,22 +1139,16 @@ void MyMesh::CalcABF()
 	b2[2 * nv + 2] = length;
 
 	A2.setFromTriplets(tripletsL2.begin(), tripletsL2.end());//设置好A
-//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;要求矩阵正定
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver2;
 	solver2.compute(A2);
-	Eigen::VectorXd res2 = solver.solve(b2);//参数化结果的点,解出角度值
+	Eigen::VectorXd res2 = solver2.solve(b2);//参数化结果的点,解出角度值
 	for (T::VertexHandle vh : mesh.vertices())
 	{
 		int idx = vh.idx();
 		T::Point p(res2(idx), res2(idx + nv), 0);
 		mesh.set_point(vh, p);
 	}
-
-
-	std::ofstream R("res.txt");
-	R << res;
-	R.close();
-
+	//R.close();
 }
 
 void MyMesh::getVCurvature(std::vector<double>& c)
