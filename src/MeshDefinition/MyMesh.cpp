@@ -443,8 +443,11 @@ void MyMesh::BilateralDenoising(double stdevs, double stdevr)
 void MyMesh::BilateralNormalFiltering(double stdevs, double stdevr)
 {
 	mesh.update_normals();
-	Eigen::MatrixXd NewNormal(mesh.n_faces(), 3);
-	Eigen::VectorXd FaceArea(mesh.n_faces());
+	std::vector<T::Normal> NewNormal(mesh.n_faces());//记录新的normal
+	std::vector<double> FaceArea(mesh.n_faces());
+	std::vector<T::Point> FaceCenter(mesh.n_faces());
+	double ta = 0;
+
 	for (T::FaceHandle fh : mesh.faces())
 	{
 		std::vector<T::Point> P;
@@ -455,49 +458,45 @@ void MyMesh::BilateralNormalFiltering(double stdevs, double stdevr)
 		auto e12 = (P[1] - P[0]);
 		auto e13 = (P[2] - P[0]);
 		double area = 0.5 * (e12 % e13).norm();
+		ta += area;
 		FaceArea[fh.idx()] = area;
+		NewNormal[fh.idx()] = mesh.normal(fh);
+		FaceCenter[fh.idx()] = mesh.calc_face_centroid(fh);
 	}
-
+	
+	stdevs = 0;
 	for (T::FaceHandle fh : mesh.faces())
 	{
-		T::Normal N = mesh.normal(fh);
-		double newNormalX = 0, newNormalY = 0, newNormalZ = 0;
-		T::Point center(0, 0, 0);
-		for (T::VertexHandle fvi : mesh.fv_range(fh))
+		//auto centroid = mesh.calc_face_centroid(fh);
+		for (T::FaceHandle ffh:mesh.ff_range(fh))
 		{
-			center += mesh.point(fvi);
+			stdevs += (FaceCenter[fh.idx()] - FaceCenter[ffh.idx()]).norm();
 		}
-		center = center / 3;
-		double Kp = 0;
-		for (T::FaceHandle nei_fh : mesh.ff_range(fh))
+	}
+	stdevs /= mesh.n_faces() / 3;
+
+	for (int i = 0; i < 8; i++)
+	{
+		for (T::FaceHandle fh : mesh.faces())
 		{
-			T::Point nei_center(0, 0, 0);
-			for (T::VertexHandle nei_fvi : mesh.fv_range(nei_fh))
+			double Kp = 0;
+			T::Normal NewN(0, 0, 0);
+			for (T::FaceHandle nei_fh : mesh.ff_range(fh))
 			{
-				nei_center += mesh.point(nei_fvi);
+				double delta_center = (FaceCenter[fh.idx()] - FaceCenter[nei_fh.idx()]).norm();
+				double delta_normal = (NewNormal[fh.idx()] - NewNormal[nei_fh.idx()]).norm();
+				double Aj = FaceArea[nei_fh.idx()];
+				double Ws = exp(-delta_center * delta_center / (2 * stdevs * stdevs));
+				double Wr = exp(-delta_normal * delta_normal / (2 * stdevr * stdevr));
+				NewN += Aj * Ws * Wr * NewNormal[nei_fh.idx()];
+				Kp += Aj * Ws * Wr;
 			}
-			nei_center = nei_center / 3;
-			T::Normal nei_N = mesh.normal(nei_fh);
-			double delta_center = (nei_center - center).norm();
-			double delta_normal = (nei_N - N).norm();
-			double Aj = FaceArea[nei_fh.idx()];
-			Kp += Aj;
-			double Ws = exp(-delta_center * delta_center / (2 * stdevs));
-			double Wr = exp(-delta_normal * delta_normal / (2 * stdevr));
-			newNormalX += Aj * Ws * Wr * nei_N.data()[0];
-			newNormalY += Aj * Ws * Wr * nei_N.data()[1];
-			newNormalZ += Aj * Ws * Wr * nei_N.data()[2];
+			NewNormal[fh.idx()] = NewN/Kp;
+			NewNormal[fh.idx()].norm();
 		}
-		newNormalX /= Kp;
-		newNormalY /= Kp;
-		newNormalZ /= Kp;
-		double norm = sqrt(newNormalX * newNormalX + newNormalY * newNormalY + newNormalZ * newNormalZ);
-		NewNormal(fh.idx(), 0) = newNormalX / norm;
-		NewNormal(fh.idx(), 1) = newNormalY / norm;
-		NewNormal(fh.idx(), 2) = newNormalZ / norm;
 	}
 
-	for (int i = 0; i < 200; i++)
+	for (int i = 0; i < 8; i++)
 	{
 		for (T::VertexHandle vh : mesh.vertices())
 		{
@@ -507,16 +506,11 @@ void MyMesh::BilateralNormalFiltering(double stdevs, double stdevr)
 			for (T::FaceHandle fh : mesh.vf_range(vh))
 			{
 				Nei_count++;
-				T::Normal nj(NewNormal(fh.idx(), 0), NewNormal(fh.idx(), 1), NewNormal(fh.idx(), 2));
-				std::vector<T::Point> P;
-				for (T::VertexHandle vh : mesh.fv_range(fh))
-				{
-					P.push_back(mesh.point(vh));
-				}
-				T::Point cj = (P[0] + P[1] + P[2]) / 3;
+				T::Point cj = mesh.calc_face_centroid(fh);
+				T::Normal nj = NewNormal[fh.idx()];
 				delta_xi += nj * (nj.data()[0] * (cj - x_i).data()[0] + nj.data()[1] * (cj - x_i).data()[1] + nj.data()[2] * (cj - x_i).data()[2]);
 			}
-			x_i += delta_xi / Nei_count;
+			x_i =x_i+ delta_xi / Nei_count;
 			mesh.set_point(vh, x_i);
 		}
 	}
