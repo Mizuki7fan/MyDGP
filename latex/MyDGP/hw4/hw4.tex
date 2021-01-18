@@ -1,4 +1,4 @@
-\documentclass[a4paper]{D:/MyRepo/latex/PaperReadingLog}
+\documentclass[a4paper]{D:/MyRepo/Script/latex/PaperReadingLog}
 \usepackage{caption}
 \usepackage{overpic}
 \usepackage{float}
@@ -8,6 +8,7 @@
 \usepackage[linesnumbered,ruled,lined]{algorithm2e}%%伪代码
 \usepackage{multicol}
 \usepackage{wrapfig}
+\setmainfont{Arial}
 
 \begin{document}
 
@@ -371,6 +372,44 @@ $$
     \caption{ABF参数化结果}
     \vspace{2mm}
 \end{figure}
+
+\section{ARAP参数化}
+As-rigid-as-possible method，目标是使得参数化前后的网格面片尽可能保持\textbf{刚性(rigid)}
+
+\subsection{知识背景}
+\subsubsection{三种类型的映射}
+
+\paragraph{定义}\begin{enumerate}
+    \item Isometric mapping: 等距映射，指只允许面片进行旋转和平移
+    \item Conformal mapping: 共形映射，相似映射，保持角度，映射前后三角形面片可以相似
+    \item Area-preserving mapping: 保面积映射，映射前后三角形面积相等
+\end{enumerate}
+如果一个映射既保持了面积又是共形的，那么就是一个等距的映射。
+
+\paragraph{性质}
+对于一个等距映射来说，映射前后的三角面片的Jacobian矩阵是一个旋转矩阵，且矩阵的两个奇异点$\sigma_1=\sigma_2=1$；对于共形映射来说，其Jacobian是一个\textbf{相似矩阵}，矩阵的两个特征值相等，$\sigma_1=\sigma_2$；而保面积的映射，其Jacobian矩阵的行列式为的值为1，也就是$\sigma_1\sigma_2=1$
+
+\subsubsection{F范数}
+矩阵$\mathrm{A}$的Frobenius范数的定义为
+$$
+\lVert A \lVert_F=\sqrt{\sum_{i=1}^m\sum_{j=1}^n\lvert a_{ij}\lvert^2}
+$$
+也就是将矩阵中每个元素求平方之后求和之后再开根号。
+
+\subsubsection{ARAP能量}
+ARAP能量被定义为
+$$
+E(u,L)=\sum_tA_t\lVert J_t-L_t \lVert_F^2
+$$
+其中，$A_t$是面积。$J_t$是面片的Jacobian，$L_t$是需要求的\textbf{目标旋转矩阵}，另外，点的UV坐标也是需要求的变量。
+\paragraph{优化方式：Local-Global Approach}
+对于这种能量，使用Local-Global交错优化的方式进行优化。在local阶段，将点的UV坐标固定住，优化$L_t$；在Global阶段，固定$L_t$，优化点的UV坐标。
+
+在Global阶段，优化的UV坐标就是常规二次能量，通过解一个线性方程组实现。
+
+在Local阶段，基于\textbf{Procrustes analysis(普式分析)}的方法，使用一个$2\times 2$的矩阵$L_t$来尽可能的近似$2\times 2$的矩阵$J_t$。通过优化$d(J_t,L_t)=\lVert J_t-L_t \lVert_F^2=trace((J_t-L_t)^T(J_t-L_t))$使得两个矩阵尽可能相似。
+
+
 
 % \begin{wrapfigure}{r}{4.5cm}%靠文字内容的左侧
 % \includegraphics{fig/4.png}
