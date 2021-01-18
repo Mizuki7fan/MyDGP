@@ -401,7 +401,7 @@ ARAP能量被定义为
 $$
 E(u,L)=\sum_tA_t\lVert J_t-L_t \lVert_F^2
 $$
-其中，$A_t$是面积。$J_t$是面片的Jacobian，$L_t$是需要求的\textbf{目标旋转矩阵}，另外，点的UV坐标也是需要求的变量。
+其中，$A_t$是面积。$J_t$是面片的Jacobian，$L_t$是需要求的\textbf{目标旋转矩阵}，另外，点的UV坐标也是需要求的变量，因为这个的值决定Jacobian矩阵。
 \paragraph{优化方式：Local-Global Approach}
 对于这种能量，使用Local-Global交错优化的方式进行优化。在local阶段，将点的UV坐标固定住，优化$L_t$；在Global阶段，固定$L_t$，优化点的UV坐标。
 
