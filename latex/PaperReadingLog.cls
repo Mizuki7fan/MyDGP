@@ -10,6 +10,8 @@
 \definecolor{hyperlink}{HTML}{6699CC}%超链接的默认颜色
 \definecolor{black}{HTML}{000000}
 \definecolor{grey}{HTML}{404040}
+\definecolor{red}{HTML}{FF3366}
+
 
 %必须用xelatex来进行编译，fontspec包用于控制字体
 \RequirePackage{fontspec}
@@ -32,7 +34,7 @@
 %定制段落之间的格式
 \RequirePackage{titlesec}
 \titleformat*{\section}{\Large\Arial\color{black}\bfseries}
-\titleformat*{\subsection}{\Arial\color{black}\bfseries}
+\titleformat*{\subsection}{\large\Arial\color{black}\bfseries}
 \titleformat*{\subsubsection}{\Arial\color{black}}
 \titleformat*{\paragraph}{\bfseries\Arial\color{black}}
 % \titlespacing*{\chapter} {0pt}{50pt}{40pt}
@@ -66,12 +68,6 @@
         \small \FangzhengHeiti \textcolor{grey}{演讲者：#1 \hfill 演讲时间：#2}
     %\end{flushleft}
 }
-
-%%中文段落
-\newcommand{\paracn}[1]{
-    \Large \FangzhengHeiti #1
-}
-
-\newcommand{\paraen}[1]{
-    \normalsize \Arial #1
+\newcommand{\key}[1]{
+    \color{red} #1 \color{black}
 }
