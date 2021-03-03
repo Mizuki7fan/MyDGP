@@ -1,5 +1,6 @@
 openmesh/out/*
 openmesh/.vs/*
+openmesh/paper/*
 #忽略多级文件夹
 **.aux
 **.log
