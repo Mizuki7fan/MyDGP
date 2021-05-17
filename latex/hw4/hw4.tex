@@ -1,4 +1,4 @@
-\documentclass[a4paper]{D:/repositories/MyDGP/latex/PaperReadingLog}
+\documentclass[a4paper]{D:/MyRepo/Script/latex/PaperReadingLog}
 \usepackage{caption}
 \usepackage{overpic}
 \usepackage{float}
@@ -396,6 +396,18 @@ $$
 $$
 也就是将矩阵中每个元素求平方之后求和之后再开根号。
 
+\subsubsection{SVD分解}
+\paragraph{特征值分解}
+对于一个\textbf{方阵}$A$来说，可以拆成$A=W \Sigma W^{-1}$，其中$\Sigma$是特征值矩阵，而$W$是对应的特征向量构成的矩阵。如果将每个特征向量标准化，那么$W$就变成了正交矩阵，从而有
+$$
+A=W \Sigma W^\top
+$$
+\paragraph{奇异值分解}
+在$A$不是方阵的时候，类似的，将$A_{m\times n}$写成$A=U\Sigma V^\top$的形式，其中$U,V$都是方阵，而$\Sigma$表示奇异值。奇异值可以通过求$A^\top A$矩阵的特征值，再将其开方获得。而$U$就就是矩阵$A^\top A$的特征向量矩阵，$V$是矩阵$AA^\top$的特征向量矩阵。
+
+\href{https://zhuanlan.zhihu.com/p/29846048}{更多细节}
+
+
 \subsubsection{ARAP能量}
 ARAP能量被定义为
 $$
@@ -405,11 +417,22 @@ $$
 \paragraph{优化方式：Local-Global Approach}
 对于这种能量，使用Local-Global交错优化的方式进行优化。在local阶段，将点的UV坐标固定住，优化$L_t$；在Global阶段，固定$L_t$，优化点的UV坐标。
 
-在Global阶段，优化的UV坐标就是常规二次能量，通过解一个线性方程组实现。
+\paragraph{Local阶段}
+在这个阶段，$UV$的坐标保持固定，求一个最优的旋转矩阵。这个矩阵要尽可能近似于当前的Jacobian矩阵，具体的做法是，先求出每个面片的Jacobian，之后将其做奇异值分解，获得左奇异值矩阵和右奇异值矩阵$U,V$，令$L=UV^\top$。
 
-在Local阶段，基于\textbf{Procrustes analysis(普式分析)}的方法，使用一个$2\times 2$的矩阵$L_t$来尽可能的近似$2\times 2$的矩阵$J_t$。通过优化$d(J_t,L_t)=\lVert J_t-L_t \lVert_F^2=trace((J_t-L_t)^T(J_t-L_t))$使得两个矩阵尽可能相似。
+\paragraph{Global阶段}
+这个阶段的目标旋转矩阵是固定的，更新顶点的位置，而此时能量是一个关于位置的二次函数，因此只需要求导数令其为0即可。
 
-
+\subsection{结果展示}
+这里展示一个参数化的结果。
+\begin{figure}[H]%使用H表示Here，不对图片排版！
+    \centering
+    \begin{overpic}[width=0.8\linewidth]{fig/7.png}
+    \end{overpic}
+    \vspace{-3.5mm}
+    \caption{ARAP参数化结果}
+    \vspace{2mm}
+\end{figure}
 
 % \begin{wrapfigure}{r}{4.5cm}%靠文字内容的左侧
 % \includegraphics{fig/4.png}

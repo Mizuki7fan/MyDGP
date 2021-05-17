@@ -1,6 +1,10 @@
  #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include "../general/MeshDefinition.h"
+#include "../general/MeshUtilities.h"
+#include <iostream>
 
+// ËãcotanÈ¨µÄlaplacian
 void CalcCotLaplacian(T& mesh, Eigen::SparseMatrix<double>& lap,std::vector<double>& cots)
 {
 	cots.resize(mesh.n_halfedges());
@@ -27,7 +31,7 @@ void CalcCotLaplacian(T& mesh, Eigen::SparseMatrix<double>& lap,std::vector<doub
 	lap.setFromTriplets(trivec.begin(), trivec.end());
 }
 
-//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¾Ö²ï¿½ï¿½ï¿½ï¿½ê£¬ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½(nv,6)ï¿½Ä¾ï¿½ï¿½ï¿½
+// ¼ÆËãËùÓÐÃæÆ¬µÄ¾Ö²¿×ø±ê
 void CalcLocalCoord(T& mesh, Eigen::MatrixXd& coord)
 {
 	coord.resize(mesh.n_faces(), 6);
@@ -51,6 +55,7 @@ void CalcLocalCoord(T& mesh, Eigen::MatrixXd& coord)
 	}
 }
 
+// ¼ÆËãTutte
 void CalcTutte(T& mesh,Eigen::MatrixX2d& result)
 {
 	int F_N = mesh.n_faces();
@@ -75,7 +80,7 @@ void CalcTutte(T& mesh,Eigen::MatrixX2d& result)
 	}
 
 	int n_border_v = 0;
-	int st = -1;//ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ß½ï¿½ï¿½
+	int st = -1;//?????????
 	T::HalfedgeHandle he_start;
 	for (T::HalfedgeHandle heh : mesh.halfedges())
 		if (mesh.is_boundary(heh))
@@ -115,7 +120,7 @@ void CalcTutte(T& mesh,Eigen::MatrixX2d& result)
 			bv(vid) = position_of_mesh[vid + V_N];
 		}
 		else
-		{//ï¿½ï¿½ï¿½ï¿½1-ï¿½ï¿½ï¿½ï¿½
+		{
 			for (T::VertexHandle vvh : mesh.vv_range(vh))
 			{
 				int vvid = vvh.idx();
@@ -127,9 +132,8 @@ void CalcTutte(T& mesh,Eigen::MatrixX2d& result)
 
 	Eigen::SparseMatrix<double> LL(V_N, V_N);
 	LL.setFromTriplets(triple_list.begin(), triple_list.end());
-	//Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-	solver.compute(LL);//Ö´ï¿½ï¿½Ô¤ï¿½Ö½ï¿½
+	solver.compute(LL);
 	Eigen::VectorXd xu = solver.solve(bu);
 	Eigen::VectorXd xv = solver.solve(bv);
 
@@ -140,33 +144,30 @@ void CalcTutte(T& mesh,Eigen::MatrixX2d& result)
 int main(int argc, char* argv[])
 {
 	std::cout << "===============\tARAP\t===============\n\n";
-@ -13,7 +149,6 @@ int main(int argc, char* argv[])
 	std::string mpath;
 	T mesh;
 	std::stringstream ss;
 	std::cout << argv[1];
 	if (argc != 2)
 	{
-		std::cout << "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·\n";
-@ -24,9 +159,122 @@ int main(int argc, char* argv[])
+		std::cout << "²ÎÊýÊýÁ¿´íÎó\n";
 		ss << argv[1];
 		ss >> mpath;
 	}
 	OpenMesh::IO::read_mesh(mesh, ((argc > 1) ? argv[1] : mpath + "alien_open.off"));
-	OpenMesh::IO::read_mesh(mesh, ((argc > 1) ? mpath : mpath + "alien_open.off"));
 	int nv = mesh.n_vertices();
 	std::cout << nv;
 	mesh.request_face_normals();
 	mesh.update_face_normals();
-	Eigen::MatrixXd LocalCoord;//ï¿½ï¿½ï¿½Â¾Ö²ï¿½ï¿½ï¿½ï¿½ï¿½
+	Eigen::MatrixXd LocalCoord;//ÃæÆ¬µÄ¾Ö²¿×ø±ê
 	CalcLocalCoord(mesh, LocalCoord);
 
-	Eigen::MatrixX2d UV;//ï¿½ï¿½ï¿½ï¿½tutte
+	Eigen::MatrixX2d UV;//TutteµÄµãÎ»ÖÃ£¬×÷ÎªUVµÄ³õÊ¼
 	CalcTutte(mesh, UV);
 
-	Eigen::SparseMatrix<double> Laplacian;//ï¿½ï¿½ï¿½ï¿½cotanÈ¨ï¿½ï¿½Laplacian
+	Eigen::SparseMatrix<double> Laplacian;//cotanÈ¨µÄLaplacian
 	std::vector<double> cots;
-	CalcCotLaplacian(mesh, Laplacian,cots);
+	CalcCotLaplacian(mesh, Laplacian, cots);
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	solver.compute(Laplacian);
 
@@ -175,7 +176,7 @@ int main(int argc, char* argv[])
 
 	for (int iter = 0; iter < 100; iter++)
 	{
-		//localï¿½×¶Î£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½Lts
+		//local½×¶Î£¬¸üÐÂÐý×ª¾ØÕó
 		for (T::FaceHandle fh : mesh.faces())
 		{
 			T::FVIter fvi = mesh.fv_begin(fh);
@@ -187,35 +188,35 @@ int main(int argc, char* argv[])
 			int vid2 = fvi->idx();
 
 			Eigen::Matrix2d P, S, J;
-			//ï¿½ï¿½Jacobianï¿½ï¿½ï¿½ï¿½
+			//PºÍS·Ö±ð±íÊ¾×ªÒÆ¾ØÕóµÄÊäÈëÊä³ö
 			P << UV(vid1, 0) - UV(vid0, 0), UV(vid2, 0) - UV(vid0, 0), UV(vid1, 1) - UV(vid0, 1), UV(vid2, 1) - UV(vid0, 1);
 			S << LocalCoord(fid, 2) - LocalCoord(fid, 0), LocalCoord(fid, 4) - LocalCoord(fid, 0),
 				LocalCoord(fid, 3) - LocalCoord(fid, 1), LocalCoord(fid, 5) - LocalCoord(fid, 1);
 			J = P * S.inverse();
 
-			//Jacobianï¿½ï¿½ï¿½ï¿½ï¿½ï¿½SVDï¿½Ö½ï¿½
+			//¶ÔJacobian×öSVD·Ö½â
 			Eigen::JacobiSVD<Eigen::Matrix2d> svd(J, Eigen::ComputeFullU | Eigen::ComputeFullV);
 
-			Eigen::Matrix2d U = svd.matrixU();//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½
-			Eigen::Matrix2d V = svd.matrixV();//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½
+			Eigen::Matrix2d U = svd.matrixU();//×óÌØÕ÷Öµ¾ØÕó
+			Eigen::Matrix2d V = svd.matrixV();//ÓÒÌØÕ÷Öµ¾ØÕó
 
 			Eigen::Matrix2d R = U * V.transpose();
 
-			if (R.determinant() < 0)//ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ÄµÚ¶ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½
+			if (R.determinant() < 0)
 			{
 				U(0, 1) = -U(0, 1);
 				U(1, 1) = -U(1, 1);
 				R = U * V.transpose();
 			}
-			Lts[fid] = R;//ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½
+			Lts[fid] = R;//???????
 		}
 
-		//Globalï¿½ï¿½ï¿½ï¿½ï¿½Â¶ï¿½ï¿½ï¿½Î»ï¿½Ã£ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½2ï¿½ÎµÄºï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½óµ¼²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª0ï¿½ï¿½ï¿½É¡ï¿½
+		//Global½×¶Î£¬¸üÐÂ¶¥µãÎ»ÖÃ
 		Eigen::VectorXd bu, bv;
 		bu.setZero(nv);
 		bv.setZero(nv);
 
-		for (T::FaceHandle fh:mesh.faces())
+		for (T::FaceHandle fh : mesh.faces())
 		{
 			int fid = fh.idx();
 			T::Normal n = mesh.normal(fh);
@@ -259,7 +260,6 @@ int main(int argc, char* argv[])
 		UV.col(1) = solver.solve(bv);
 	}
 
-
 	for (int i = 0; i < mesh.n_vertices(); i++)
 	{
 		T::VertexHandle vh = mesh.vertex_handle(i);
@@ -268,5 +268,4 @@ int main(int argc, char* argv[])
 	}
 
 	OpenMesh::IO::write_mesh(mesh, "output.obj");
-
-
+}

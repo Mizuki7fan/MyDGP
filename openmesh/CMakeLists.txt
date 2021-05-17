@@ -88,3 +88,14 @@ file (GLOB HW43_FILE
     src/hw4/abf.cpp
 )
 add_executable(${PROJECT_NAME}_HW43 ${HW43_FILE})
+
+############################################################
+# Project Homework 4.4 == ARAP
+############################################################
+
+file (GLOB HW44_FILE
+    src/general/MeshDefinition.*
+    src/general/MeshUtilities.*
+    src/hw4/arap.cpp
+)
+add_executable(${PROJECT_NAME}_HW44 ${HW44_FILE})
